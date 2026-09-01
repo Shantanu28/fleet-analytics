@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Claude Code local overrides
+.claude/settings.local.json
