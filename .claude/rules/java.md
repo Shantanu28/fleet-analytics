@@ -65,6 +65,26 @@ String label = switch (terminalState) {
 
 Avoid speculative interfaces, generic repositories and unnecessary inheritance. **Do not add Lombok or any dependency to satisfy these conventions.**
 
+Shared value and context types live in **their own files**, not nested inside the query or controller class that happens to return them first — a record declared inside a repository becomes that repository's name in every signature that uses it.
+
+## 1a. Imports
+
+**Import types normally, annotations included.** A fully qualified name inline is for a real collision or generated code, not for saving an import line.
+
+```java
+import org.springframework.stereotype.Repository;
+
+@Repository                                        // good
+public class ContextQueries { … }
+
+@org.springframework.stereotype.Repository         // avoid: nothing collides here
+public class ContextQueries { … }
+
+// A static import of a member does not collide with a type of the same name:
+import static com.fleet.analytics.data.jooq.tables.Repository.REPOSITORY;   // the field
+import org.springframework.stereotype.Repository;                          // the annotation
+```
+
 ## 2. Layering
 
 Constructor injection, `final` fields. Controllers stay thin. **SQL population selection lives in the data layer; metric derivation lives in the pure metrics layer** (`04` §4). Generated persistence types never cross into API responses or pure metric interfaces.

@@ -1,7 +1,7 @@
 # 06 — Execution plan
 
 > **Status: DRAFT, awaiting review.** An execution guide, not a specification. Scope is `00-research.md` §7 · calculations `01` · acceptance criteria `02` · boundaries `03` · implementation `04` · tests `05`. Nothing is copied from them here.
-> **M1 is complete and verified; M2–M6 are planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
+> **M1 and M2 are complete and verified; M3–M6 are planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
 
 ## How to work the plan
 
@@ -29,12 +29,13 @@ TanStack Query is approved. Nothing else below is; none is resolved here.
 **Result.** `make setup` and `make test` pass from a clean environment; the PostgreSQL smoke test reports 1 test, 0 failures, 0 errors, 0 skipped; frontend type-check and build pass. `make setup` re-runs without reapplying the migration or dropping data.
 **Review gate.** Reviewed.
 
-### M2 — Authentication and tenancy
+### M2 — Authentication and tenancy ✔ complete
 **Deliverable.** Username/password login, signed JWT validation, a protected `analytics/context`, and a minimal UI that signs in and shows the authenticated organisation name.
 **Touches.** Backend `security` and `web` packages; migrations for organisation, team, **repository**, user and seat tables plus the **publication and source-coverage metadata** the context response returns; `contracts/openapi.yaml` for the login and context endpoints; a login view and context fetch in `frontend/src`.
 **Data.** Minimal **explicit two-tenant fixtures**, written for these tests only. M2 does **not** depend on M4's demo generator and adds **no startup seeding**.
 **Done when.** For the login and context slice only: valid credentials issue a token and load the context; invalid credentials, and missing, expired, malformed, tampered, wrongly-signed, wrong-issuer and wrong-audience tokens are all rejected; the context returns the organisation name, and only that organisation's teams, repositories, coverage and seat count, resolved from the token alone; a foreign identifier is indistinguishable from a nonexistent one; demo accounts are inert outside demo configuration; the UI displays the organisation name. Dashboard-response tenant isolation and `ADMIN`/`VIEWER` redaction are verified in **M3**; their rendered behaviour, cache clearing and reload/restore in **M5–M6**. No acceptance criterion is dropped — they land in the milestone that can actually exercise them.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+**Result.** `make test` exits 0: 69 backend tests and 28 frontend tests, 0 failures, 0 errors, 0 skipped, plus type-check and production build. Authentication uses Spring Security's resource-server support with a local decoder; responses are validated against `contracts/openapi.yaml` by a real schema validator, proven to reject a deliberately non-conforming body. Key configuration is exercised through Spring property binding and profile activation, and fail-closed behaviour was confirmed by a real startup failure. TanStack Query was brought forward here for the context query.
+**Review gate.** Awaiting human review.
 
 ### M3 — Analytics backend
 **Deliverable.** The metrics module and its SQL over the hand-checkable contract fixture: five KPIs, funnel, trends, comparison with benchmark, and the four findings; `analytics/dashboard` serving them; OpenAPI conformance.

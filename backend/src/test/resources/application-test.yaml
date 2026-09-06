@@ -1,0 +1,13 @@
+# Settings shared by every Spring integration test, activated explicitly with @ActiveProfiles("test").
+# Fixture values, clocks and scenario switches (demo accounts, key locations, issuer overrides) stay
+# in the test that needs them — this file must not decide any test's subject.
+fleet:
+  jwt:
+    # `test` is an allowed key-generation profile, so integration tests get an ephemeral pair
+    # instead of key material in the repository. Tests that assert key configuration override this.
+    dev-keys-enabled: true
+
+logging:
+  level:
+    org.springframework.security: warn
+    org.jooq.Constants: off

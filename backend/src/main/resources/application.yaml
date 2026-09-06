@@ -7,3 +7,29 @@ spring:
     password: ${DB_PASSWORD:fleet}
   flyway:
     enabled: false   # migrations are applied explicitly (make setup), never on startup
+
+fleet:
+  jwt:
+    issuer: fleet-analytics
+    audience: fleet-analytics-dashboard
+    ttl: 15m
+    # Configured keys take precedence and are never replaced on failure. Supply BOTH or neither;
+    # an unreadable, malformed, undersized or mismatched pair fails startup under every profile.
+    private-key-location: ${FLEET_JWT_PRIVATE_KEY:}
+    public-key-location: ${FLEET_JWT_PUBLIC_KEY:}
+    # Fail closed. Generation additionally requires an allowed profile (dev or test): this flag
+    # alone, in any other profile, does nothing and startup fails.
+    dev-keys-enabled: ${FLEET_DEV_KEYS:false}
+  demo:
+    # Half of the demo control. The `demo` profile must also be active; enabling development key
+    # generation never enables demo accounts.
+    accounts-enabled: ${FLEET_DEMO_ACCOUNTS:false}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+fleet:
+  jwt:
+    dev-keys-enabled: true

@@ -1,0 +1,136 @@
+openapi: 3.1.0
+info:
+  title: Fleet Analytics API
+  version: 0.3.0
+  description: >
+    M2 surface: username/password login and the tenant-scoped analytics context.
+    Organisation scope comes from the verified token; no endpoint accepts an organisation parameter.
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Exchange username and password for a short-lived access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400':
+          description: The request body could not be read
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401':
+          description: Invalid credentials, reported without revealing which part failed
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '415':
+          description: The request body was not JSON
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500':
+          description: Unexpected server fault, reported without internal detail
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /analytics/context:
+    get:
+      summary: Filter options and identity for the authenticated organisation
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Context for the caller's own organisation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContextResponse' }
+        '401':
+          description: Missing, expired, malformed or otherwise unacceptable token
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: Authenticated but not permitted
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500':
+          description: >
+            Required organisation or publication metadata is absent, or an unexpected fault
+            occurred. No coverage is invented and no empty success is substituted.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+    LoginResponse:
+      description: >
+        userId and organisationId identify the signed-in account so the client can scope its
+        caches. They are echoed identity, never an authorisation input: every endpoint derives
+        organisation scope from the verified token alone.
+      type: object
+      required: [accessToken, expiresInSeconds, userId, organisationId, displayName, role]
+      properties:
+        accessToken: { type: string }
+        expiresInSeconds: { type: integer }
+        userId: { type: string, format: uuid }
+        organisationId: { type: string, format: uuid }
+        displayName: { type: string }
+        role: { type: string, enum: [ADMIN, VIEWER] }
+    NamedEntity:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    Coverage:
+      type: object
+      required: [dataAvailableFrom, dataThrough, revision]
+      properties:
+        dataAvailableFrom: { type: string, format: date-time }
+        dataThrough: { type: string, format: date-time }
+        revision: { type: string }
+    ContextResponse:
+      type: object
+      required: [organisationName, role, teams, repositories, licensedSeats, coverage]
+      properties:
+        organisationName: { type: string }
+        role: { type: string, enum: [ADMIN, VIEWER] }
+        teams: { type: array, items: { $ref: '#/components/schemas/NamedEntity' } }
+        repositories: { type: array, items: { $ref: '#/components/schemas/NamedEntity' } }
+        licensedSeats: { type: integer }
+        coverage: { $ref: '#/components/schemas/Coverage' }
+    Problem:
+      description: >
+        RFC 9457 problem detail. `title` is always served — it falls back to the status reason
+        phrase — and `instance` appears on responses produced by the controller advice. Details are
+        sanitised: no identifier, SQL, stack trace or token ever appears here.
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }

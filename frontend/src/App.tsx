@@ -1,9 +1,42 @@
-/** M1 skeleton. The dashboard is built in M5. */
-export function App() {
+import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ContextView } from './ContextView'
+import { LoginView } from './LoginView'
+import { SessionProvider, useSession } from './auth/session'
+
+function Routes() {
+  const { session } = useSession()
+  return session ? <ContextView /> : <LoginView />
+}
+
+/**
+ * Background refetching is off: this dashboard's data changes only when the dataset does
+ * (04 §5.2). Authentication and validation failures are not retried — they surface to the user.
+ */
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchOnMount: false,
+        staleTime: Infinity,
+      },
+    },
+  })
+}
+
+export function App({ client }: { client?: QueryClient } = {}) {
+  // Created once. Building it during render would discard every cache on any rerender.
+  const [fallbackClient] = useState(createQueryClient)
+  const queryClient = client ?? fallbackClient
+
   return (
-    <main>
-      <h1>Fleet Analytics</h1>
-      <p>Synthetic demo data. Build skeleton — no dashboard yet.</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>
+        <Routes />
+      </SessionProvider>
+    </QueryClientProvider>
   )
 }

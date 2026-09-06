@@ -35,14 +35,19 @@ setup: db-wait
 seed:
 	@echo "seed: not implemented until M4" >&2; exit 1
 
-## dev: M2+. Not implemented yet.
+## dev: run the backend (dev profile, generated keys) and the Vite dev server together.
+## Seeds nothing, changes no migrations and deletes nothing: run `make setup` first, and
+## `make seed` once M4 exists. Ctrl-C stops both; either one exiting stops the other and
+## fails the target. The launcher signals only the process groups it started itself — never
+## group 0, and never a process matched by name or by the port it holds.
 dev:
-	@echo "dev: not implemented until M2" >&2; exit 1
+	node scripts/dev.mjs
 
-## test: non-browser checks (backend unit + PostgreSQL integration, frontend type-check/build)
+## test: non-browser checks - backend unit + PostgreSQL integration,
+## React component tests, frontend type-check and production build
 test:
 	./mvnw verify
-	cd frontend && npm run type-check && npm run build
+	cd frontend && npm run test && npm run type-check && npm run build
 
 ## e2e: M6. Not implemented yet.
 e2e:

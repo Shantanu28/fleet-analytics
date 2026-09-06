@@ -4,9 +4,9 @@ Org-level analytics dashboard for **Fleet**, an imaginary cloud coding-agent pla
 
 ## Where we are
 
-**M1 (foundation) is implemented.** The build runs end to end: Flyway migrates a baseline schema, jOOQ generates types from it, the backend compiles, and **one PostgreSQL integration smoke test passes** against a real container. The frontend type-check and production build pass.
+**M1 (foundation) and M2 (authentication and tenancy) are implemented.** Username/password login issues RS256 JWTs; a tenant-scoped `GET /api/v1/analytics/context` returns the organisation name, role, teams, repositories, licensed seats and coverage, resolved from the token alone. A minimal React UI signs in, shows the organisation and signs out. **69 backend tests and 28 frontend tests pass**, alongside frontend type-check and production build.
 
-**Not built yet:** frontend component tests, login, the analytics API, the demo dataset and any dashboard behaviour. M2–M6 remain planned (`docs/06-plan.md`).
+**Not built yet:** the analytics/dashboard API and metrics, the demo dataset generator, dashboard rendering, filters and findings. M3–M6 remain planned (`docs/06-plan.md`).
 
 Specs: research (`00`), the metrics contract (`01`) and requirements (`02`) are landed; architecture (`03`), the technical spec (`04`), the testing spec (`05`) and the plan (`06`) are **drafts**. Do not scaffold, install, or invent requirements until a task explicitly asks for it.
 
@@ -31,7 +31,7 @@ Answer a question from the document that owns it: *what we build* is §00, *how 
 
 Approved direction, specified in `docs/04-technical-spec.md`: **React + TypeScript** frontend with **TanStack Query** for server state; **Java 25 + Spring Boot** backend; **PostgreSQL**; **Flyway** for migrations; **jOOQ** for SQL, with no JPA/Hibernate. Authentication is username + password with short-lived JWTs.
 
-Vite and the M1 dependency versions are settled and in use. **TanStack Query is approved but not yet integrated** (M5). **Still unresolved** — do not assume: the JWT signature algorithm, the password-hashing algorithm, the React component-test stack, the browser-test tool, and later-milestone choices. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
+Vite and the M1 dependency versions are settled and in use. **TanStack Query is integrated** — brought forward to M2 for the context query. Settled in M2: RS256, Argon2id, Vitest with React Testing Library, and a test-scoped OpenAPI response validator. **Still unresolved** — do not assume: the browser-test tool and later-milestone choices. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
 
 ## Conventions that apply from commit one
 

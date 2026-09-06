@@ -17,6 +17,24 @@
     <!-- jOOQ + JDBC, versions managed by spring-boot-dependencies. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+    <!-- Argon2PasswordEncoder requires BouncyCastle; not managed by spring-boot-dependencies. -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-jooq</artifactId>
     </dependency>
     <dependency>
@@ -38,6 +56,11 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Testcontainers 2.x renamed these artifacts (was org.testcontainers:postgresql). -->
     <dependency>
       <groupId>org.testcontainers</groupId>
@@ -47,6 +70,16 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Validates real HTTP interactions against contracts/openapi.yaml. Test scope only:
+         it brings its own Jackson 2 tree, which coexists with Boot 4's Jackson 3
+         (tools.jackson) because the coordinates and packages are disjoint. -->
+    <dependency>
+      <groupId>com.atlassian.oai</groupId>
+      <artifactId>openapi-request-validator-core</artifactId>
+      <version>${openapi-request-validator.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -109,7 +142,7 @@
             <database>
               <name>org.jooq.meta.postgres.PostgresDatabase</name>
               <inputSchema>public</inputSchema>
-              <includes>organisation</includes>
+              <includes>organisation|team|repository|app_user|seat_licence|dataset_publication|source_day_coverage</includes>
               <excludes>flyway_schema_history</excludes>
             </database>
             <target>
