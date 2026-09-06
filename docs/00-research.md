@@ -202,7 +202,7 @@ The example is deliberately flat. Budget risk is evaluated against the calendar 
 
 ## 9. Privacy principle
 
-Fleet analytics collects the operational metadata needed for adoption, cost, reliability and outcome measurement. It does not collect prompt text, model responses or source-code contents. Grain is org → team → repository; no individual view exists, in the prototype or in v1 (§10.2). Denied-domain detail is restricted to platform admins, because internal hostnames can reveal architecture; in the prototype it appears only inside a network-policy-friction finding. This document decides only that the restriction exists. Who may see what is an access requirement (`02-requirements.md`); the trust boundary it sits on belongs to `03-architecture.md`; how it is enforced belongs to `04-technical-spec.md`. No authentication mechanism is chosen here.
+Fleet analytics collects the operational metadata needed for adoption, cost, reliability and outcome measurement. It does not collect prompt text, model responses or source-code contents. Grain is org → team → repository; no individual view exists, in the prototype or in v1 (§10.2). Denied-domain detail is restricted to platform admins, because internal hostnames can reveal architecture; in the prototype it appears only inside a network-policy-friction finding. This document decides only that the restriction exists — the access criteria are now `02-requirements.md` US-09 and the mechanism is `04-technical-spec.md` §5.1. Who may see what is an access requirement (`02-requirements.md`); the trust boundary it sits on belongs to `03-architecture.md`; how it is enforced belongs to `04-technical-spec.md`. No authentication mechanism is chosen here.
 
 ## 10. Deferred, and cut
 

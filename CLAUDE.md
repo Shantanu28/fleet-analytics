@@ -4,19 +4,19 @@ Org-level analytics dashboard for **Fleet**, an imaginary cloud coding-agent pla
 
 ## Where we are
 
-Research is complete and the prototype scope (**P0**) is frozen in `docs/00-research.md` §7. The metrics contract is next. There is no application code, no dependencies and no stack yet. Do not scaffold, install, or invent requirements until a task explicitly asks for it and the relevant spec exists.
+Specifications are written; **no application code, no dependencies and no executable tests exist yet**. Research (`00`), the metrics contract (`01`) and requirements (`02`) are landed. Architecture (`03`), the technical spec (`04`), the testing spec (`05`) and the execution plan (`06`) exist as **drafts**. Do not scaffold, install, or invent requirements until a task explicitly asks for it.
 
 ## Document sequence, and what each one owns
 
 | Document | Owns | Status |
 |---|---|---|
 | `docs/00-research.md` | **product scope** — personas, the one question, which metrics earn a place, the frozen P0 (§7) | landed |
-| `docs/01-metrics-contract.md` | **calculations** — formulas, timestamp rules, exclusions, sample thresholds, benchmark scope, filter semantics, attention-rule evaluation | next |
-| `docs/02-requirements.md` | **acceptance criteria** — user stories `US-n` and criteria `AC-n.m` | planned |
-| `docs/03-architecture.md` | **system boundaries** — the production design, and what the prototype mocks | planned |
-| `docs/04-technical-spec.md` | **implementation** — stack, project structure, API contracts | planned |
-| `docs/05-testing-spec.md` | **verification** — how every acceptance criterion is proven | planned |
-| `docs/06-plan.md` | **execution order** — milestones and the cut line | planned |
+| `docs/01-metrics-contract.md` | **calculations** — formulas, timestamp rules, exclusions, sample thresholds, benchmark scope, filter semantics, attention-rule evaluation | landed |
+| `docs/02-requirements.md` | **acceptance criteria** — user stories `US-n` and criteria `AC-n.m` | landed |
+| `docs/03-architecture.md` | **system boundaries** — the production design, and what the prototype mocks | **draft** |
+| `docs/04-technical-spec.md` | **implementation** — stack, project structure, API contracts | **draft** |
+| `docs/05-testing-spec.md` | **verification** — how every acceptance criterion is proven | **draft** |
+| `docs/06-plan.md` | **execution order** — milestones and the cut line | **draft** |
 | `docs/07-ai-workflow.md` | a **log kept during development**: how Claude Code was driven, and where it was wrong | maintained as work proceeds |
 
 **ADRs** are added alongside significant decisions as those decisions are made. None exist yet — do not cite an ADR number that has not been written.
@@ -25,12 +25,14 @@ Answer a question from the document that owns it: *what we build* is §00, *how 
 
 ## Stack
 
-Undecided until `docs/04-technical-spec.md`. Assume nothing.
+Approved direction, specified in `docs/04-technical-spec.md`: **React + TypeScript** frontend with **TanStack Query** for server state; **Java 25 + Spring Boot** backend; **PostgreSQL**; **Flyway** for migrations; **jOOQ** for SQL, with no JPA/Hibernate. Authentication is username + password with short-lived JWTs.
+
+**Still unresolved** — do not assume: the JWT algorithm, the password-hashing algorithm, frontend build and test libraries, and every dependency version. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
 
 ## Conventions that apply from commit one
 
 - Small commits. Format `type(scope): what and why`; add milestone and spec ids once they exist, e.g. `M3: metrics — merge rate (AC-1.2, AC-1.4)`. Types: chore, docs, feat, test, fix, ci, refactor.
-- The human writes or edits every commit message. Stage and propose; don't commit unless asked.
+- The human stages and commits. Propose file groups and commit messages; do not stage, commit or push unless explicitly asked.
 - Never edit `docs/` unless the task says so — propose the change instead.
 - Never add a dependency that isn't listed in the technical spec.
 - No secrets and no assignment text in the repo. "No real company names" means no real customer identities or private company information in fixtures or examples; public vendor names and cited research sources are fine.

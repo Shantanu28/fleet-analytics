@@ -16,7 +16,9 @@
 
 **Scope** is exactly `00-research.md` §7: one page, five KPI cards, cohort funnel, two trends, needs-attention panel, one comparison table with team and repository views, under date/team/repository filters reflected in the URL. No individual-user analytics, no exports, no custom dashboards, no additional metric sub-lines.
 
-**Demo framing.** The application is labelled as running on **synthetic demo data** (AC-01.2). The demo represents a **platform-admin viewer**, so synthetic denied domains are visible to it (AC-06.9). Real authentication and role enforcement are **production integration boundaries** (§7.2), not features built here; the demo demonstrates no authorisation security.
+**Demo framing.** The application is labelled as running on **synthetic demo data** (AC-01.2).
+
+**Authentication is in scope.** Users sign in with a **username and password**; the API is authenticated by a short-lived JWT, and the **organisation scope and role come from the verified identity** — never from a client parameter. Two roles share one dashboard: `ADMIN` sees denied-domain detail, `VIEWER` sees a redacted form with the same counts (AC-06.9). The shipped demo installs **two organisations**, configured in `04-technical-spec.md` §6; a user views the other by logging out and signing in with its account, as there is no organisation switcher. Fixture counts and demo credentials are not repeated here. Requirements for a production deployment remain in §7.2.
 
 ## 2. Page structure and visual reference
 
@@ -62,7 +64,7 @@ Order is fixed by `00-research.md` §7: KPI row → funnel → trends → needs-
 - **AC-02.1** Given the page with no URL parameters, Then the date range defaults to the **last 30 complete UTC days ending at `dataThrough`**, with all teams and all repositories selected.
 - **AC-02.2** Given the filter bar, Then 7-, 30- and 90-day presets and a custom inclusive date range are offered; the selected range is displayed as inclusive UTC dates (contract §1.1).
 - **AC-02.3** Given any filter change, Then the URL updates to encode date range, team and repository, and the displayed "Showing …" label matches the URL.
-- **AC-02.4** Given a URL with filters, When the page is refreshed or reached by browser back/forward, Then the same view is restored with no additional interaction.
+- **AC-02.4** Given a URL with filters and a **valid authenticated session**, When the page is reached by browser back or forward, Then the same view is restored with no additional interaction and without signing in again. When the page is **refreshed**, the in-memory token is lost, so signing in is required again; after signing in as the same user, the URL's dates, filters and grouping are restored without being re-entered (AC-09.15). An expired session follows the same reauthentication behaviour.
 - **AC-02.5** Given a team filter and a repository filter, Then results reflect their **intersection**, and the labels name both.
 - **AC-02.6** Given a valid filter combination that matches no activity, Then the page renders an **empty result** with zero counts (contract §1.5) and a reset action — not an error. Zero-activity messaging applies **per metric**, against that metric's own scope and timestamp basis (contract §2), and must not be stated as a page-wide "no activity".
 - **AC-02.7** Given a malformed, reversed, or not-fully-covered date range (contract §1.5), Then the request is rejected with a message naming the specific problem, and no metrics are rendered.
@@ -121,7 +123,7 @@ Order is fixed by `00-research.md` §7: KPI row → funnel → trends → needs-
   - **Still in the top three** — the originating finding renders normally, showing its **newly computed** evidence for the filtered scope (domain shown where AC-06.9 permits).
   - **No longer in the top three** — a concise navigation notice explains that findings were reranked for the filtered scope. The originating finding is **not** pinned, **no** fourth finding is displayed, and its previous evidence is **not** retained as a current result.
 - **AC-06.8** Given a followed finding link, Then the destination view, read on its own, states the filters, table grouping and date range in effect.
-- **AC-06.9** Given the demo platform-admin viewer, Then a network-policy-friction finding may display the synthetic denied domain (contract §6.4, `00-research.md` §9).
+- **AC-06.9** Given a signed-in `ADMIN`, Then a network-policy-friction finding may display the synthetic denied domain; given a `VIEWER`, Then the domain is absent while the counts are identical (contract §6.4, `00-research.md` §9).
 - **AC-06.10** Given any finding link, Then its destination is an existing P0 section; **no** link promises a failure-reason or denied-domain view (`00-research.md` §10.1).
 - **AC-06.11** Given a followed finding link of any type, When the user presses browser back, Then the originating URL is restored — including the originating team and repository filters, date range **and table grouping** (AC-05.7).
 - **AC-06.12** Given team **Payments** is selected and a **repo-api** failure-spike finding is shown, When that finding is followed, Then the team filter remains **Payments**, the repository filter becomes **repo-api**, the date range is unchanged, and the comparison table opens in the **Repositories** grouping with the repo-api row in view.
@@ -162,7 +164,28 @@ Every surface in `00-research.md` §7 has at least one acceptance criterion, and
 | Comparison table, team/repository views | AC-05.1–05.7 | AC-05.4, AC-05.7, AC-08.4 |
 | Global filters reflected in the URL | AC-02.1–02.9, AC-05.7 | AC-02.6–02.8, AC-07.2, AC-07.8 |
 | Demo-data labelling and cutoff | AC-01.2, AC-01.3 | NFR-7 |
-| Admin-visible denied domain (demo) | AC-06.9 | PR-1, PR-2, PR-3 |
+| Admin-visible denied domain | AC-06.9 | AC-09.8, AC-09.9, PR-2, PR-3 |
+| Login, tenancy and role | AC-09.1–09.16 | AC-02.8, AC-07.7 |
+
+### US-09 — Sign in, and see only my organisation
+*As a user of either organisation, I want to sign in and see my own organisation's data, with my role's level of detail.*
+
+- **AC-09.1** Given valid credentials, When login is submitted, Then a signed 15-minute token is issued and the dashboard loads.
+- **AC-09.2** Given invalid credentials, Then login fails with a sanitised message that does not reveal whether the username exists.
+- **AC-09.3** Given no token, Then every business endpoint returns 401 and no data.
+- **AC-09.4** Given an expired token, Then requests return 401 and the UI returns to login.
+- **AC-09.5** Given a malformed or tampered token, Then requests return 401.
+- **AC-09.6** Given a token signed by another key, or carrying the wrong issuer or audience, Then requests return 401.
+- **AC-09.7** Given an authenticated user, Then responses contain only their organisation's data, and an identifier belonging to another organisation is indistinguishable from one that does not exist.
+- **AC-09.8** Given a `VIEWER`, Then no raw denied domain and no internal domain-bearing identity string appears in any response field, finding text, finding identifier or link.
+- **AC-09.9** Given an `ADMIN`, Then denied-domain detail is present and its counts match the viewer's redacted counts.
+- **AC-09.10** Given sign-out, Then the in-memory token and all cached protected data are cleared.
+- **AC-09.11** Given a different user or role signs in, Then no previously cached response is reused.
+- **AC-09.12** Given non-demo configuration, Then demo accounts cannot sign in.
+- **AC-09.13** Given a signed-in user, Then the authenticated view shows the **name of the organisation** whose data is displayed.
+- **AC-09.14** Given a user signs in to a different organisation, Then the previous tenant's team or repository ids are **not** silently applied: they resolve through the existing unknown-filter behaviour (AC-02.8), the tenant-independent date range and grouping survive, and no cached or late-arriving response from the previous tenant is rendered.
+- **AC-09.15** Given the page is reloaded, Then login is required again because the token is held in memory only; and after signing in again **as the same user**, the URL's filters, range and grouping are restored without being re-entered.
+- **AC-09.16** Given sign-out, Then local protected state is cleared but the already-issued token is **not revoked** and remains valid until it expires; this limitation is stated in the UI.
 
 ## 4. Interaction and state rules
 
@@ -202,7 +225,7 @@ No scale, uptime or latency targets are claimed. Performance measurement belongs
 
 These become browser tests.
 
-- **J-1 Overview → filter → restore.** Load the default view (AC-01.1, AC-02.1); confirm the demo indicator and cutoff (AC-01.2, AC-01.3); switch to the 90-day preset and select one team (AC-02.2, AC-02.3, AC-02.5); refresh (AC-02.4); the same view returns with matching labels and URL.
+- **J-1 Overview → filter → restore.** Sign in (AC-09.1); load the default view (AC-01.1, AC-02.1); confirm the organisation name, demo indicator and cutoff (AC-09.13, AC-01.2, AC-01.3); switch to the 90-day preset and select one team (AC-02.2, AC-02.3, AC-02.5); use browser back and forward and confirm the view is restored without signing in again (AC-02.4); then refresh, sign in again as the same user, and confirm the same dates, filters and grouping return with matching labels and URL (AC-02.4, AC-09.15).
 - **J-2 Finding → investigation → back.** From the panel, confirm at most three ranked findings with in-line evidence and the correct evaluation state (AC-06.1, AC-06.2, AC-06.3). Follow a **budget** finding; confirm the month-to-date spend trend, the cleared repository restriction, and the explained reporting-period change (AC-06.4, AC-06.8). Press back and **confirm the starting view is restored** — filters, date range and grouping (AC-06.11) — before continuing; the second finding is located again in the restored panel rather than assumed to have survived the first navigation. Then follow a **failure-spike** finding and confirm the date range and other-dimension filter are preserved, the scope is applied, the table is in the matching grouping and the affected row is in view (AC-06.5, AC-06.6, AC-06.12). Press back again and confirm the originating view (AC-06.11).
 - **J-3 Empty / unavailable / error → recovery.** Select a valid filter combination with no activity and confirm zeros with an explanation and reset (AC-02.6, AC-07.3); apply a team filter and confirm the seat count with utilisation unavailable (AC-07.5); confirm a gated comparison names its gate while the value stays visible (AC-07.4); trigger a recoverable failure, retry, and confirm filters survive (AC-07.7).
 
@@ -211,12 +234,12 @@ These become browser tests.
 ### 7.1 Out of scope
 Everything in `00-research.md` §10.1 and §10.2 — notably checks-passed share, open-PR ageing, steering analytics, model mix, duration and failure-reason charts, denied-domain charts, repository-outlier and rate-limit rules, exports, custom dashboards and individual-user analytics. Not repeated here.
 
-### 7.2 Production integration requirements (documented, not built)
-These are requirements on a production deployment, not demo behaviour, and the prototype demonstrates none of them:
+### 7.2 Prototype controls and additional production requirements
+The prototype **plans** a real authorisation boundary: username/password login, JWT-authenticated APIs, organisation scope from the verified identity, and role-based redaction (US-09, `04-technical-spec.md` §5.1). None of it is implemented yet. The items below record what a **production** deployment additionally requires, and where the prototype's version is deliberately simpler:
 
-- **PR-1** Authentication and role assignment are supplied by the deploying organisation. The demo hard-codes a platform-admin viewer and proves nothing about authorisation.
-- **PR-2** Denied-domain detail must be restricted to platform admins (`00-research.md` §9). The demo shows synthetic domains to its demo-admin viewer; the trust boundary belongs to `03-architecture.md` and enforcement to `04-technical-spec.md`.
-- **PR-3** Non-admin rendering requires a redacted friction string that preserves the counts and omits the domain (contract §6.4). Its exact copy is not specified here because P0 has no non-admin viewer to test it against.
+- **PR-1** Identity is simplified for the demo: a globally unique normalised username resolves one account, one organisation and one role, with no registration, password reset, organisation selection or SSO. A production deployment supplies its own identity provider and role assignment. The demo implements a real authorisation boundary but is not hardened — no token revocation or rotation, no rate limiting, no session management — and its public credentials guard synthetic data only.
+- **PR-2** Denied-domain detail must be restricted to platform admins (`00-research.md` §9). The prototype plans to show synthetic domains to a signed-in `ADMIN` only; the trust boundary belongs to `03-architecture.md` and enforcement to `04-technical-spec.md`.
+- **PR-3** The planned `VIEWER` presentation **preserves evidence counts** while omitting raw denied domains and internal domain-bearing identity strings; **stable keyed pseudonymous finding identifiers are permitted** (contract §6.4, §6.5; `04-technical-spec.md` §5). P0 has a `VIEWER` role and plans tests for it (`05-testing-spec.md` §3). What remains a production concern is the exact redacted copy shown to end users, which is not specified here.
 - **PR-4** Real seat-history, task-retry lifecycle, event deduplication and branch-rename handling are excluded from the demo model (contract §1.3) and must be specified before production use.
 
 ### 7.3 Unresolved conflicts

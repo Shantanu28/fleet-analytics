@@ -518,13 +518,14 @@ These are properties of the prototype, not open questions.
 - The non-admin redacted friction string is described, not specified; the exact copy belongs to `02-requirements.md`.
 - Production task lifecycle, retry orchestration, event deduplication, historical seat changes and branch renaming are all explicitly outside this contract (§1.3).
 
-### 10.3 Open questions
+### 10.3 Dataset coverage — settled
 
-1. **`dataAvailableFrom` for the shipped demo dataset.** The fixture uses 2025-12-01, provably sufficient for its own periods and baseline. The generator's value is not yet chosen, and "longest range plus 28 days" is **not** a sufficient rule — it can miss the previous period. Coverage must span, for every period the UI can select, the **union** of:
-   - the selected period itself;
-   - its **preceding equal-length comparison period** (which for a long range is the larger requirement);
-   - the **28-day failure-spike baseline** ending at the selected period's start;
-   - the **evaluated budget month-to-date** (§6.1), which is anchored on `dataThrough` and is independent of the selected range.
+The shipped demo dataset covers the **latest date presets** and, for each, its **equal-length comparison period**, its **28-day failure-spike baseline**, and the **evaluated budget month-to-date** (§6.1). Dataset size, calendar dates and `dataAvailableFrom` are configured in `04-technical-spec.md` §6 and are not repeated here.
 
-   For a selectable range of length `L` ending at `dataThrough`, the earliest instant required is therefore `dataThrough − 2L`, or `start − 28 days`, whichever is earlier — and never later than the first day of the evaluated budget month.
-2. **Per-team budget values and denial-event volume** the generator should produce so the panel has findings to display. This contract defines the rules, not the data.
+A **custom range lying wholly inside the published coverage is valid**, even when its comparison period or failure baseline falls outside that coverage. Those are not errors: the comparison resolves to `no_baseline` and the affected rules to `not_evaluated` (§1.2, §1.5, §6), each carrying its reason and neither rendered as healthy.
+
+The earlier requirement that coverage span the baseline of *every* selectable historical range is **withdrawn**. It cannot hold for a range beginning at `dataAvailableFrom`, and it is unnecessary — the unavailable-baseline states exist precisely for that case.
+
+### 10.4 Open questions
+
+1. **Per-team budget values and denial-event volume** the generator should produce so the panel has findings to display. This contract defines the rules, not the data.

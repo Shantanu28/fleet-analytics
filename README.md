@@ -2,7 +2,7 @@
 
 Organization-level analytics dashboard for **Fleet**, an imaginary platform where engineers delegate coding tasks to agents that run in isolated cloud sandboxes and open pull requests. A take-home assignment for a developer-tools company, built spec-first with an AI-first workflow.
 
-> **Status:** research complete, prototype scope (P0) frozen. The metrics contract is next; there is no application code yet. This README grows with the repo, and the git log is the build diary.
+> **Status:** specifications written, **no application code and no executable tests yet**. Research, the metrics contract and the requirements are landed; architecture, the technical spec, the testing spec and the execution plan are drafts still under review. This README grows with the repo, and the git log is the build diary.
 
 ## What this is
 
@@ -16,21 +16,27 @@ The frozen prototype is five KPI cards, an outcome funnel, two trends, one team/
 
 Spec-driven, one commit per document, so the history shows each decision as it was made:
 
-| # | Document | Owns |
-|---|---|---|
-| 00 | [Research & product framing](docs/00-research.md) | product scope: personas, the one question, the frozen P0 |
-| 01 | Metrics contract | calculations: formulas, timestamps, exclusions, thresholds |
-| 02 | Requirements | acceptance criteria |
-| 03 | Architecture | system boundaries, and what the prototype mocks |
-| 04 | Technical spec | stack, structure, API contracts |
-| 05 | Testing spec | how every acceptance criterion is proven |
-| 06 | Plan | milestones and the cut line |
-| 07 | AI workflow | a log kept during development: how Claude Code was driven, and where it was wrong |
+| # | Document | Owns | Status |
+|---|---|---|---|
+| 00 | [Research & product framing](docs/00-research.md) | product scope: personas, the one question, the frozen P0 | landed |
+| 01 | [Metrics contract](docs/01-metrics-contract.md) | calculations: formulas, timestamps, exclusions, thresholds | landed |
+| 02 | [Requirements](docs/02-requirements.md) | acceptance criteria | landed |
+| 03 | Architecture | system boundaries, and what the prototype mocks | local draft — not published |
+| 04 | [Technical spec](docs/04-technical-spec.md) | stack, structure, schema, API contracts | draft |
+| 05 | [Testing spec](docs/05-testing-spec.md) | how every acceptance criterion is proven | draft |
+| 06 | [Plan](docs/06-plan.md) | milestones and the cut line | draft |
+| 07 | AI workflow | a log kept during development: how Claude Code was driven, and where it was wrong | not started |
 
-Decision records (ADRs) are added alongside significant decisions as they are made. Only document 00 exists so far; the rest are linked here as they land.
+Documents 03–06 are drafts under review, not settled decisions. Decision records (ADRs) are added alongside significant decisions as they are made; none exists yet.
+
+## Planned stack
+
+**React + TypeScript** frontend using **TanStack Query** for server state, **Java 25 + Spring Boot** API, **PostgreSQL** with **Flyway** migrations and **jOOQ** queries (no JPA/Hibernate). Sign-in is username and password with short-lived JWTs, and the dashboard shows one organisation at a time, scoped from the verified identity.
+
+The JWT algorithm, password-hashing algorithm, frontend build and test libraries, and all dependency versions are **not yet decided** — see `docs/04-technical-spec.md` §8.
 
 Then implementation: one milestone per pull request, tests first.
 
 ## Run it
 
-Nothing to run yet. Instructions land with the first code milestone.
+Nothing to run yet — there is no implementation. Setup instructions, and the public credentials for the synthetic demo accounts, land with the first code milestone.
