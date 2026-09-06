@@ -1,7 +1,7 @@
 # 06 — Execution plan
 
 > **Status: DRAFT, awaiting review.** An execution guide, not a specification. Scope is `00-research.md` §7 · calculations `01` · acceptance criteria `02` · boundaries `03` · implementation `04` · tests `05`. Nothing is copied from them here.
-> **No command below has been run.** Planned commands are not evidence of passing tests.
+> **M1 is complete and verified; M2–M6 are planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
 
 ## How to work the plan
 
@@ -11,9 +11,10 @@ Small test-first steps. Tests accompany **every** milestone — M6 completes ver
 
 TanStack Query is approved. Nothing else below is; none is resolved here.
 
+**M1's tooling and compatibility checks are settled** — the build tool and every dependency version are confirmed and in use, recorded in `04-technical-spec.md` §1.
+
 | Blocks | Still open |
 |---|---|
-| M1 | frontend build tool (Vite recommended); all dependency versions. Plus a **compatibility check, not an approval**: jOOQ 3.21.8 and Flyway 13.5.0 against PostgreSQL 18 |
 | M2 | JWT signature algorithm (RS256 recommended); password hashing (Argon2id recommended); **coverage metadata tables** (`04` A.5), needed here because the context response carries coverage; component test stack (Vitest + React Testing Library recommended), needed here because M2 creates the first UI |
 | M3 | `cost_cents >= 0` |
 | M4 | demo calendar dates and `dataAvailableFrom`; per-team budget values; denial-event volume; seed-derived namespaced ids; advisory-lock seeding |
@@ -21,11 +22,12 @@ TanStack Query is approved. Nothing else below is; none is resolved here.
 
 ## Milestones
 
-### M1 — Foundation
+### M1 — Foundation ✔ complete
 **Deliverable.** A clean clone builds: PostgreSQL running, Flyway migrations at head, jOOQ types generated, backend and frontend skeletons compiling.
 **Touches.** Root `pom.xml`, Maven wrapper, `docker-compose.yml`, `Makefile`, `backend/pom.xml`, `backend/src/main/resources/db/migration/`, `frontend/`.
 **Done when.** `make setup` succeeds from a clean clone in the order fixed by `04` §7, **and then** the backend and frontend compile and a PostgreSQL integration smoke test passes against a Testcontainers instance. Setup completing is not proof on its own — the compile and the smoke test are what show the generated types and the test path actually work.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+**Result.** `make setup` and `make test` pass from a clean environment; the PostgreSQL smoke test reports 1 test, 0 failures, 0 errors, 0 skipped; frontend type-check and build pass. `make setup` re-runs without reapplying the migration or dropping data.
+**Review gate.** Reviewed.
 
 ### M2 — Authentication and tenancy
 **Deliverable.** Username/password login, signed JWT validation, a protected `analytics/context`, and a minimal UI that signs in and shows the authenticated organisation name.

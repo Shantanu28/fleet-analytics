@@ -21,3 +21,7 @@ coverage/
 
 # Claude Code local overrides
 .claude/settings.local.json
+
+# Build output
+target/
+dist/

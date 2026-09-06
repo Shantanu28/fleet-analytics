@@ -1,0 +1,49 @@
+# Thin wrapper over Maven, npm and Compose. Every target propagates failure.
+# No target deletes a database or drops data.
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+.PHONY: setup seed dev test e2e db-up db-wait
+
+# Colima puts the Docker socket under ~/.colima/..., but Testcontainers' Ryuk must
+# bind-mount the in-VM path (/var/run/docker.sock). Detect that one case from the active
+# Docker context so the documented entry points work without editing a shell profile.
+# Other VM-backed runtimes are not detected; set DOCKER_HOST and
+# TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE yourself if you use one.
+DOCKER_ENDPOINT := $(shell docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null)
+ifneq ($(findstring .colima,$(DOCKER_ENDPOINT)),)
+export DOCKER_HOST := $(DOCKER_ENDPOINT)
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE := /var/run/docker.sock
+endif
+
+db-up:
+	docker compose up -d postgres
+
+db-wait: db-up
+	@echo "waiting for PostgreSQL readiness..."
+	@for i in $$(seq 1 60); do \
+	  if docker compose exec -T postgres pg_isready -U fleet -d fleet >/dev/null 2>&1; then \
+	    echo "postgres ready"; exit 0; fi; sleep 1; done; \
+	echo "postgres did not become ready" >&2; exit 1
+
+## setup: database ready -> migrations -> jOOQ generation -> frontend deps
+setup: db-wait
+	./mvnw -pl backend flyway:migrate
+	./mvnw -pl backend generate-sources
+	cd frontend && npm ci
+
+## seed: M4. Not implemented yet.
+seed:
+	@echo "seed: not implemented until M4" >&2; exit 1
+
+## dev: M2+. Not implemented yet.
+dev:
+	@echo "dev: not implemented until M2" >&2; exit 1
+
+## test: non-browser checks (backend unit + PostgreSQL integration, frontend type-check/build)
+test:
+	./mvnw verify
+	cd frontend && npm run type-check && npm run build
+
+## e2e: M6. Not implemented yet.
+e2e:
+	@echo "e2e: not implemented until M6" >&2; exit 1

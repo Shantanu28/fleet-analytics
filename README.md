@@ -2,7 +2,7 @@
 
 Organization-level analytics dashboard for **Fleet**, an imaginary platform where engineers delegate coding tasks to agents that run in isolated cloud sandboxes and open pull requests. A take-home assignment for a developer-tools company, built spec-first with an AI-first workflow.
 
-> **Status:** specifications written, **no application code and no executable tests yet**. Research, the metrics contract and the requirements are landed; architecture, the technical spec, the testing spec and the execution plan are drafts still under review. This README grows with the repo, and the git log is the build diary.
+> **Status: M1 (foundation) implemented.** The build chain works — Flyway migration, jOOQ generation, backend compile, **one passing PostgreSQL integration smoke test**, and a passing frontend type-check and production build. There is **no login, analytics API, demo dataset or dashboard yet**, and no frontend component tests; M2–M6 are planned. Research, the metrics contract and the requirements are landed; the architecture, technical, testing and plan documents are drafts under review.
 
 ## What this is
 
@@ -33,10 +33,21 @@ Documents 03–06 are drafts under review, not settled decisions. Decision recor
 
 **React + TypeScript** frontend using **TanStack Query** for server state, **Java 25 + Spring Boot** API, **PostgreSQL** with **Flyway** migrations and **jOOQ** queries (no JPA/Hibernate). Sign-in is username and password with short-lived JWTs, and the dashboard shows one organisation at a time, scoped from the verified identity.
 
-The JWT algorithm, password-hashing algorithm, frontend build and test libraries, and all dependency versions are **not yet decided** — see `docs/04-technical-spec.md` §8.
+Vite and the M1 dependency versions are **settled and in use**. **TanStack Query is approved but not yet integrated** — it arrives with the dashboard. Still pending: the JWT signature algorithm, the password-hashing algorithm, the component- and browser-testing tools, and dependencies belonging to later milestones — see `docs/04-technical-spec.md` §8.
 
 Then implementation: one milestone per pull request, tests first.
 
 ## Run it
 
-Nothing to run yet — there is no implementation. Setup instructions, and the public credentials for the synthetic demo accounts, land with the first code milestone.
+**M1 quickstart.** This verifies the foundation — it does not start a dashboard, because there isn't one yet.
+
+Requires **Java 25**, **Node 20.19+ or 22.12+**, and a running Docker-compatible runtime (Docker Desktop, Colima, or similar) with Compose.
+
+```bash
+make setup   # start PostgreSQL, wait for readiness, migrate, generate jOOQ types, install npm deps
+make test    # backend compile + PostgreSQL integration smoke test, then frontend type-check and build
+```
+
+`make setup` is safe to repeat: it re-validates the migration rather than reapplying it, and never drops data.
+
+What passing means: the schema, code generation, compilation and build pipeline all work. It does **not** mean any product behaviour works. Login, the analytics API, the demo dataset and the dashboard arrive in later milestones, and the demo account credentials will be published here once login and seeding exist.

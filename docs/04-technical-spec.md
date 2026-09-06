@@ -1,6 +1,6 @@
 # 04 — Technical specification
 
-> **Status: DRAFT.** Nothing here is implemented. Commands, versions and structure are planned.
+> **Status: DRAFT.** **M1 (foundation) is implemented and verified**: build, migration, jOOQ generation, backend compile, one passing PostgreSQL integration smoke test, and a passing frontend type-check and production build. Everything else — login, the analytics API, the demo dataset, the dashboard — is still planned.
 > `01-metrics-contract.md` remains authoritative for every calculation and state; this document says how they are stored, queried and served, and does not restate formulas.
 > **Authentication is an approved scope change** superseding the earlier "no login" prototype exclusions in `02-requirements.md` §7.2 and `03-architecture.md`. §8 lists the documents needing a synchronisation pass.
 
@@ -14,16 +14,24 @@ The prototype consists of a **React frontend, a Spring Boot API and PostgreSQL**
 
 **Why this stack.** The metrics are relational aggregates over a few million rows at most, so PostgreSQL alone answers every query in the contract; nothing in P0 justifies a queue, cache or columnar store. jOOQ gives typed SQL without an ORM's object-graph machinery, which suits a read-only analytics surface with no write model. Flyway owning DDL keeps the schema reviewable as plain SQL. React with URL-encoded state matches a single bookmarkable page.
 
+**Backend versions are Spring Boot-managed** — declared without version elements and resolved from `spring-boot-dependencies:4.1.1`. No overrides.
+
 | Component | Version | Note |
 |---|---|---|
-| Java | 25 (LTS) | within Spring Boot 4.1.1's tested range |
-| Spring Boot | 4.1.1 | Java 17 min, Java 26 max tested; Spring Framework 7.0.9+; Maven 3.6.3+ |
-| PostgreSQL | 18.6 | current major; `UNIQUE NULLS NOT DISTINCT` and foreign-key `MATCH` semantics verified against the PostgreSQL 18 manual |
-| jOOQ (Open Source) | 3.21.8 | Java 21+ baseline |
-| Flyway | 13.5.0 | Java 17+ |
-| React / TypeScript | 19.2.7 / 7.0 | |
+| Java | 25 (LTS) | within Spring Boot 4.1.1's tested range (17 min, 26 max tested). `starter-parent` defaults `java.version` to 17, so the root POM sets it to 25 |
+| Spring Boot | 4.1.1 | Spring Framework 7.0.9+; Maven 3.6.3+ |
+| PostgreSQL | 18.6 | `UNIQUE NULLS NOT DISTINCT` and foreign-key `MATCH` semantics verified against the PostgreSQL 18 manual. Image pinned to `postgres:18.6-alpine` in Compose **and** in tests |
+| jOOQ (Open Source) | **3.21.7** | Boot-managed |
+| Flyway | **12.4.0** | Boot-managed; `flyway-database-postgresql` is a separate artifact, also added to the Maven plugin's own dependencies |
+| PostgreSQL JDBC | 42.7.13 | Boot-managed |
+| JUnit Jupiter | 6.0.3 | Boot-managed |
+| Testcontainers | 2.0.5 | Boot-managed via `testcontainers-bom`. **2.x renamed the artifacts** — `testcontainers-postgresql`, `testcontainers-junit-jupiter`; the old `org.testcontainers:postgresql` no longer resolves. Container class is `org.testcontainers.postgresql.PostgreSQLContainer` |
+| React / TypeScript | 19.2.8 / 7.0.2 | resolved by npm |
+| Vite / `@vitejs/plugin-react` | 8.2.2 / 6.1.1 | Vite 8 requires Node `^20.19 \|\| >=22.12` |
 
-Versions were read from vendor pages on 6 Sep 2026; **nothing has been build-tested**. Two assumptions to confirm at first build: jOOQ and Flyway against PostgreSQL **18** specifically (PostgreSQL 17.11 is the fallback and changes nothing else here). Build-tool, test-library and frontend-tooling versions are unpinned recommendations.
+**Maven plugin versions are inherited, not pinned.** `spring-boot-dependencies` manages 30 plugins in `pluginManagement`, including `flyway-maven-plugin` (`${flyway.version}`) and `jooq-codegen-maven` (`${jooq.version}`). Confirmed from the **effective POM**, which resolves them to 12.4.0 and 3.21.7 with no version declared by us.
+
+**Verified by an executed build on 6 Sep 2026** (M1): jOOQ 3.21.7 generation and Flyway 12.4.0 migration both against PostgreSQL **18.6**, plus the TypeScript 7.0.2 / Vite 8.2.2 / Node 26 frontend toolchain. The PostgreSQL 17 fallback is no longer needed. PostgreSQL 18 moves the image volume to `/var/lib/postgresql` (`PGDATA=/var/lib/postgresql/18/docker`), which `docker-compose.yml` follows.
 
 ## 2. Project structure
 
@@ -285,7 +293,7 @@ The seeder is an ordinary Spring Boot entry point — a `CommandLineRunner` unde
 
 Configuration comes from environment variables or Spring profiles: datasource URL and credentials, JWT key location, issuer, audience, the finding-id HMAC secret, and the demo flag. **No secret is committed** — not signing keys, not the HMAC secret, not real credentials; the repository ships an example file with placeholders. **Public synthetic-demo credentials are a separate matter and may be documented in the README**, since they guard generated data only; stored account passwords are always hashed.
 
-These commands are planned. None has been run.
+**M1 status.** `make setup` and `make test` have been executed successfully from a clean environment. Under **Colima** the host socket is not `/var/run/docker.sock`, but Testcontainers' resource reaper must bind-mount the in-VM path; the `Makefile` detects **that specific case** from the active Docker context and sets `DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` itself, so no shell profile needs changing. Other VM-backed runtimes are not auto-detected — set those two variables yourself. `make setup` is **idempotent and non-destructive**: a second run reports "Schema is up to date. No migration necessary", regenerates jOOQ, and leaves existing rows intact — verified with a sentinel row that survived. `make seed`, `make dev` and `make e2e` are not implemented yet and exit non-zero with a message naming the milestone that adds them.
 
 ## 8. Trade-offs and open decisions
 
@@ -299,7 +307,9 @@ These commands are planned. None has been run.
 | TanStack Query for server state | a hand-written fetch hook | one more frontend dependency | the surface simplifies enough that one uncached request without cancellation or race handling would do, or the measured dependency and maintenance cost outweighs the loading, caching, cancellation and race handling it removes |
 | No JPA/Hibernate | Spring Data JPA | hand-written SQL for every metric | the app grows write paths, which P0 has none of |
 
-**Open decisions:** JWT algorithm (RS256 recommended); password hashing (Argon2id recommended); frontend build and test tooling (Vite, Vitest + React Testing Library, Playwright — all recommendations); exact dataset calendar dates; unpinned tool versions, including TanStack Query's.
+**Settled in M1:** Vite as the frontend build tool, and every dependency version listed in §1, now resolved and exercised by a real build. **TanStack Query is approved but not yet integrated** — it arrives with the dashboard in M5.
+
+**Open decisions:** JWT signature algorithm (RS256 recommended); password hashing (Argon2id recommended); the React component-test stack (Vitest + React Testing Library recommended); the browser-test tool (Playwright recommended); exact dataset calendar dates; and TanStack Query's version, unpinned until it is added.
 
 **Outstanding synchronisation** — not edited here. The status, authentication, tenancy and coverage items previously listed have been applied to `README.md`, `CLAUDE.md`, `00-research.md`, `01-metrics-contract.md` and `02-requirements.md`; what remains is visual:
 

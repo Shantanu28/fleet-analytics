@@ -1,7 +1,18 @@
 # 05 — Testing specification
 
-> **Status: DRAFT. No test in this document exists, and none has passed.** Everything below is planned.
+> **Status: DRAFT.** One test exists and passes — the M1 PostgreSQL schema/jOOQ integration smoke test (§0). **Everything else in this document is planned**: no metric, API, security, component or browser test has been written or run.
 > `01-metrics-contract.md` is authoritative for expected values, `02-requirements.md` for behaviour, `04-technical-spec.md` for the stack and commands.
+
+## 0. Implemented so far (M1)
+
+| Check | Status |
+|---|---|
+| PostgreSQL schema/jOOQ integration smoke test — Flyway migrates a baseline schema in a real `postgres:18.6-alpine` container, then a generated jOOQ type round-trips a row | **passing** — 1 test, 0 failures, 0 errors, 0 skipped |
+| Frontend type-check (`tsc --noEmit`) and production build (`vite build`) | **passing** |
+
+The smoke test is named `*Test` so Surefire runs it during `mvn verify`; it is not a Failsafe test and is not skipped. Both checks run from the documented entry points, `make setup` then `make test`.
+
+**A passing build is not a behavioural test.** Nothing below this section has been written or executed — metric arithmetic, API, security, component and browser tests are all planned.
 
 ## 1. What we need confidence in
 
@@ -143,6 +154,8 @@ Against **real PostgreSQL 18.6 via Testcontainers**. H2 is not used at any level
 
 **New tooling recommendation, not yet approved: Vitest + React Testing Library.** These sit alongside the browser journeys and cover behaviour that is expensive to reach end to end.
 
+> **Status after M1 — no component test exists.** M1 verified the frontend **build pipeline only**: `tsc --noEmit` type-checks and `vite build` produces a bundle. A passing build is not a behavioural test. Everything in this section remains planned, and the tooling above still needs approval (M2, `06-plan.md`).
+
 Tests exercise **accessible, user-facing behaviour** — roles, labels and visible text — rather than internal component state. The **HTTP boundary is mocked** so a component can be driven through states the backend would take effort to produce; component internals are not mocked. **Backend metric arithmetic is not reimplemented here**: fixtures supply already-computed values and states, and the assertions are about rendering.
 
 Server state uses TanStack Query (`04-technical-spec.md` §5.2). Each test constructs its **own `QueryClient`**, so no cache leaks between tests. The assertions are about **observable behaviour at the HTTP boundary** — which requests go out, and what the user sees — never about the library's internals.
@@ -214,4 +227,4 @@ Underneath these are Maven and npm; the Makefile only sequences them and propaga
 
 **Proposed coverage thresholds — a proposal, not an approved standard and not evidence of correctness:** ≥ 95% branch coverage in the `metrics` package, where a missed branch is a wrong number on someone's screen; ≥ 80% line coverage elsewhere in the backend; none on generated jOOQ code. The independently stated fixture expectations in §2 are the real proof.
 
-**Nothing here has been executed.** No test file exists, no command has been run, and no result in this document should be read as passing.
+**Only the M1 checks in §0 have been executed.** Every other test in this document is planned — no file, no run, no result. Do not read any of them as passing.

@@ -4,7 +4,11 @@ Org-level analytics dashboard for **Fleet**, an imaginary cloud coding-agent pla
 
 ## Where we are
 
-Specifications are written; **no application code, no dependencies and no executable tests exist yet**. Research (`00`), the metrics contract (`01`) and requirements (`02`) are landed. Architecture (`03`), the technical spec (`04`), the testing spec (`05`) and the execution plan (`06`) exist as **drafts**. Do not scaffold, install, or invent requirements until a task explicitly asks for it.
+**M1 (foundation) is implemented.** The build runs end to end: Flyway migrates a baseline schema, jOOQ generates types from it, the backend compiles, and **one PostgreSQL integration smoke test passes** against a real container. The frontend type-check and production build pass.
+
+**Not built yet:** frontend component tests, login, the analytics API, the demo dataset and any dashboard behaviour. M2–M6 remain planned (`docs/06-plan.md`).
+
+Specs: research (`00`), the metrics contract (`01`) and requirements (`02`) are landed; architecture (`03`), the technical spec (`04`), the testing spec (`05`) and the plan (`06`) are **drafts**. Do not scaffold, install, or invent requirements until a task explicitly asks for it.
 
 ## Document sequence, and what each one owns
 
@@ -27,7 +31,7 @@ Answer a question from the document that owns it: *what we build* is §00, *how 
 
 Approved direction, specified in `docs/04-technical-spec.md`: **React + TypeScript** frontend with **TanStack Query** for server state; **Java 25 + Spring Boot** backend; **PostgreSQL**; **Flyway** for migrations; **jOOQ** for SQL, with no JPA/Hibernate. Authentication is username + password with short-lived JWTs.
 
-**Still unresolved** — do not assume: the JWT algorithm, the password-hashing algorithm, frontend build and test libraries, and every dependency version. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
+Vite and the M1 dependency versions are settled and in use. **TanStack Query is approved but not yet integrated** (M5). **Still unresolved** — do not assume: the JWT signature algorithm, the password-hashing algorithm, the React component-test stack, the browser-test tool, and later-milestone choices. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
 
 ## Conventions that apply from commit one
 
@@ -35,6 +39,7 @@ Approved direction, specified in `docs/04-technical-spec.md`: **React + TypeScri
 - The human stages and commits. Propose file groups and commit messages; do not stage, commit or push unless explicitly asked.
 - Never edit `docs/` unless the task says so — propose the change instead.
 - Never add a dependency that isn't listed in the technical spec.
+- Coding rules live in `.claude/rules/`: `java.md` (scoped to `backend/**`) and `react.md` (scoped to `frontend/**`). They cover conventions only — the `docs/` specifications stay authoritative for product behaviour.
 - No secrets and no assignment text in the repo. "No real company names" means no real customer identities or private company information in fixtures or examples; public vendor names and cited research sources are fine.
 
 ## How to work a task
