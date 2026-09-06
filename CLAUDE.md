@@ -4,17 +4,28 @@ Org-level analytics dashboard for **Fleet**, an imaginary cloud coding-agent pla
 
 ## Where we are
 
-Day 0. No code, no dependencies, no docs yet. Do not scaffold, install, or invent requirements until a task explicitly asks for it and the relevant spec exists.
+Research is complete and the prototype scope (**P0**) is frozen in `docs/00-research.md` §7. The metrics contract is next. There is no application code, no dependencies and no stack yet. Do not scaffold, install, or invent requirements until a task explicitly asks for it and the relevant spec exists.
 
-## Source of truth (as the docs land)
+## Document sequence, and what each one owns
 
-`docs/02-requirements.md` (what — `US-n`, `AC-n.m`) → `docs/03-technical-spec.md` (how) → `docs/04-testing-spec.md` (proof) → `docs/05-plan.md` (order of work).
+| Document | Owns | Status |
+|---|---|---|
+| `docs/00-research.md` | **product scope** — personas, the one question, which metrics earn a place, the frozen P0 (§7) | landed |
+| `docs/01-metrics-contract.md` | **calculations** — formulas, timestamp rules, exclusions, sample thresholds, benchmark scope, filter semantics, attention-rule evaluation | next |
+| `docs/02-requirements.md` | **acceptance criteria** — user stories `US-n` and criteria `AC-n.m` | planned |
+| `docs/03-architecture.md` | **system boundaries** — the production design, and what the prototype mocks | planned |
+| `docs/04-technical-spec.md` | **implementation** — stack, project structure, API contracts | planned |
+| `docs/05-testing-spec.md` | **verification** — how every acceptance criterion is proven | planned |
+| `docs/06-plan.md` | **execution order** — milestones and the cut line | planned |
+| `docs/07-ai-workflow.md` | a **log kept during development**: how Claude Code was driven, and where it was wrong | maintained as work proceeds |
 
-If a spec you need doesn't exist yet, say so and stop. If code and spec disagree, stop and ask — never silently change either.
+**ADRs** are added alongside significant decisions as those decisions are made. None exist yet — do not cite an ADR number that has not been written.
+
+Answer a question from the document that owns it: *what we build* is §00, *how a number is computed* is 01, *what counts as done* is 02. If a spec you need doesn't exist yet, say so and stop. If code and spec disagree, stop and ask — never silently change either.
 
 ## Stack
 
-Decided in `docs/03-technical-spec.md`. Until that file exists, assume nothing.
+Undecided until `docs/04-technical-spec.md`. Assume nothing.
 
 ## Conventions that apply from commit one
 
@@ -22,7 +33,7 @@ Decided in `docs/03-technical-spec.md`. Until that file exists, assume nothing.
 - The human writes or edits every commit message. Stage and propose; don't commit unless asked.
 - Never edit `docs/` unless the task says so — propose the change instead.
 - Never add a dependency that isn't listed in the technical spec.
-- No secrets, no real company names, no assignment text in the repo.
+- No secrets and no assignment text in the repo. "No real company names" means no real customer identities or private company information in fixtures or examples; public vendor names and cited research sources are fine.
 
 ## How to work a task
 
