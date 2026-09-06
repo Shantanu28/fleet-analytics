@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: Fleet Analytics API
-  version: 0.3.0
+  version: 0.4.0
   description: >
-    M2 surface: username/password login and the tenant-scoped analytics context.
+    Login, the tenant-scoped analytics context, and the dashboard selection response.
     Organisation scope comes from the verified token; no endpoint accepts an organisation parameter.
+    The dashboard path is defined here ahead of its implementation (M3 slice A): the contract is
+    extended before the endpoint is built, so conformance tests have something to validate against.
 servers:
   - url: /api/v1
 paths:
@@ -71,6 +73,74 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /analytics/dashboard:
+    get:
+      summary: Every dashboard section for one filter selection
+      description: >
+        Read-only. Organisation and role come from the verified token; no organisation parameter
+        exists and none is accepted. Any range wholly inside the published coverage is valid --
+        90 days is a preset, not a maximum.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: >
+            Inclusive UTC start date. Supply both `from` and `to`, or neither. Omitting both
+            selects the last 30 complete UTC days ending at `dataThrough`. An empty value is
+            rejected, never treated as omitted.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Inclusive UTC end date, mapped internally to the half-open end + 1 day.
+          schema: { type: string, format: date }
+        - name: teamId
+          in: query
+          required: false
+          description: >
+            Combined with repositoryId by intersection. An identifier belonging to another
+            organisation is rejected identically to one that does not exist.
+          schema: { type: string, format: uuid }
+        - name: repositoryId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: grouping
+          in: query
+          required: false
+          description: Comparison-table grouping. Defaults to `teams`.
+          schema: { type: string, enum: [teams, repositories] }
+      responses:
+        '200':
+          description: All dashboard sections for the resolved selection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardResponse' }
+        '400':
+          description: >
+            Invalid selection. The problem `type` distinguishes the cause: invalid-date-format,
+            reversed-date-range, incomplete-date-range, range-outside-coverage, unknown-filter
+            (unknown and foreign identifiers are indistinguishable) or invalid-grouping.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401':
+          description: Missing, expired, malformed or otherwise unacceptable token
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: Authenticated but not permitted
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500':
+          description: Required metadata absent, or an unexpected fault. No values are invented.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 components:
   securitySchemes:
     bearerAuth:
@@ -121,6 +191,416 @@ components:
         repositories: { type: array, items: { $ref: '#/components/schemas/NamedEntity' } }
         licensedSeats: { type: integer }
         coverage: { $ref: '#/components/schemas/Coverage' }
+    Display:
+      description: >
+        A presentation-precision value produced by exactly one rounding applied directly to the
+        exact integer counts and cent sums. The client formats it visually -- separators, currency
+        symbol, sign placement, chart scaling -- and never divides, re-rounds, sums or compares it
+        to a threshold. Spend totals carry whole dollars, cost per merged PR two decimals, and
+        rates and percentage-point deltas one decimal (contract 8.6).
+      type: object
+      required: [value, unit]
+      properties:
+        value: { type: string }
+        unit: { type: string, enum: [count, percent, percentagePoints, usd] }
+    Evidence:
+      description: >
+        Exact integer populations and cent sums behind a metric, supplied so on-screen copy can
+        name a sample or show spend without the client recomputing anything. Every field is
+        optional; a metric carries only what its own copy needs.
+      type: object
+      properties:
+        mergedPrs: { type: integer }
+        terminalPrs: { type: integer }
+        completedTasks: { type: integer }
+        failedTasks: { type: integer }
+        codeChangeSpendCents: { type: integer }
+        previousMergedPrs: { type: integer }
+        previousTerminalPrs: { type: integer }
+        previousCompletedTasks: { type: integer }
+        previousFailedTasks: { type: integer }
+        previousCodeChangeSpendCents: { type: integer }
+        previousActiveSeats: { type: integer }
+    Comparison:
+      description: >
+        Comparison state, resolved independently of the value state by the contract 1.2 precedence
+        list. `kind` is the single comparison each card displays (AC-01.7); no second comparison is
+        ever substituted. `display` is present exactly when state is ok and is **absent** -- never
+        an explicit null -- for every other state, which instead carries reasonCode and reason.
+        The if/then below is that rule, enforced rather than only described.
+      type: object
+      required: [kind, state]
+      properties:
+        kind: { type: string, enum: [relative, percentagePoints, absoluteUsd, absoluteCount] }
+        state:
+          type: string
+          enum: [ok, unavailable_for_scope, missing_data, no_baseline, no_denominator,
+                 insufficient_sample, undefined_relative]
+        display: { $ref: '#/components/schemas/Display' }
+        reasonCode: { type: string }
+        reason: { type: string }
+        evidence: { $ref: '#/components/schemas/Evidence' }
+      if:
+        required: [state]
+        properties:
+          state: { const: ok }
+      then:
+        required: [display]
+      else:
+        required: [reasonCode, reason]
+        not: { required: [display] }
+    Metric:
+      description: >
+        A value state and, independently, an optional comparison. `display` is present exactly for
+        the two defined states, ok and zero_outcome, and is **absent** -- never an explicit null --
+        for no_denominator, unavailable_for_scope and missing_data, each of which carries
+        reasonCode and reason instead. Availability is therefore never inferred from a missing key,
+        and the if/then below enforces both halves rather than only describing them.
+        `roundsToZero` appears only on spend totals, where contract 8.6 requires a positive amount
+        that rounds to zero to read as "<$1"; it is not applied to other monetary metrics.
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [ok, zero_outcome, no_denominator, unavailable_for_scope, missing_data]
+        display: { $ref: '#/components/schemas/Display' }
+        roundsToZero: { type: boolean }
+        reasonCode: { type: string }
+        reason: { type: string }
+        evidence: { $ref: '#/components/schemas/Evidence' }
+        comparison: { $ref: '#/components/schemas/Comparison' }
+      if:
+        required: [state]
+        properties:
+          state: { enum: [ok, zero_outcome] }
+      then:
+        required: [display]
+      else:
+        required: [reasonCode, reason]
+        not: { required: [display] }
+    SeatsMetric:
+      description: >
+        Active seats, with licensed capacity and a separately stated utilisation ratio. `display`,
+        reasonCode and reason follow the Metric rule exactly -- present for ok and zero_outcome,
+        absent with a stated reason otherwise -- so the seats card is not a third convention.
+      type: object
+      required: [state, licensedSeats, utilisation]
+      if:
+        required: [state]
+        properties:
+          state: { enum: [ok, zero_outcome] }
+      then:
+        required: [display]
+      else:
+        required: [reasonCode, reason]
+        not: { required: [display] }
+      properties:
+        state:
+          type: string
+          enum: [ok, zero_outcome, no_denominator, unavailable_for_scope, missing_data]
+        display: { $ref: '#/components/schemas/Display' }
+        reasonCode: { type: string }
+        reason: { type: string }
+        licensedSeats: { type: integer }
+        comparison: { $ref: '#/components/schemas/Comparison' }
+        utilisation:
+          description: >
+            Utilisation carries a value and a state but no comparison: AC-01.7 fixes the card's
+            single displayed comparison to the absolute active-seat change, and AC-01.8 forbids a
+            second badge. Under any team or repository filter this becomes unavailable_for_scope.
+          $ref: '#/components/schemas/Metric'
+    Selection:
+      type: object
+      required: [from, to, startInclusive, endExclusive, previousFrom, previousTo,
+                 teamId, repositoryId, grouping, observationCutoff]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        startInclusive: { type: string, format: date-time }
+        endExclusive: { type: string, format: date-time }
+        previousFrom: { type: string, format: date }
+        previousTo: { type: string, format: date }
+        teamId: { type: [string, 'null'], format: uuid }
+        repositoryId: { type: [string, 'null'], format: uuid }
+        grouping: { type: string, enum: [teams, repositories] }
+        observationCutoff:
+          description: dataThrough minus one day -- the last complete UTC day (AC-01.3, contract 4).
+          type: string
+          format: date
+    CoverageWindow:
+      type: object
+      required: [startInclusive, endExclusive, incompleteSources]
+      properties:
+        startInclusive: { type: string, format: date-time }
+        endExclusive: { type: string, format: date-time }
+        incompleteSources:
+          description: Empty means fully covered. Diagnostic only -- each metric states its own availability.
+          type: array
+          items: { type: string }
+    CoverageWindows:
+      description: >
+        The five distinctly identified windows the contract evaluates independently. budgetMonthToDate
+        is absent when budget evaluation is unavailable for the scope (contract 5.3).
+      type: object
+      required: [current, previousPeriod, failureBaseline28d, funnelObservation]
+      properties:
+        current: { $ref: '#/components/schemas/CoverageWindow' }
+        previousPeriod: { $ref: '#/components/schemas/CoverageWindow' }
+        failureBaseline28d: { $ref: '#/components/schemas/CoverageWindow' }
+        budgetMonthToDate: { $ref: '#/components/schemas/CoverageWindow' }
+        funnelObservation: { $ref: '#/components/schemas/CoverageWindow' }
+    Kpis:
+      type: object
+      required: [mergedPrs, terminalMergeRate, costPerMergedPr, taskCompletionRate, seats]
+      properties:
+        mergedPrs: { $ref: '#/components/schemas/Metric' }
+        terminalMergeRate: { $ref: '#/components/schemas/Metric' }
+        costPerMergedPr: { $ref: '#/components/schemas/Metric' }
+        taskCompletionRate: { $ref: '#/components/schemas/Metric' }
+        seats: { $ref: '#/components/schemas/SeatsMetric' }
+    Funnel:
+      description: >
+        Each stage states its own availability, so a missing pull-request source leaves the
+        task-only stages available while prOpened and prMerged become missing_data.
+      type: object
+      required: [observationCutoff, stages, sideExits, residual]
+      properties:
+        observationCutoff: { type: string, format: date }
+        stages:
+          type: object
+          required: [started, completed, prOpened, prMerged]
+          properties:
+            started: { $ref: '#/components/schemas/Metric' }
+            completed: { $ref: '#/components/schemas/Metric' }
+            prOpened: { $ref: '#/components/schemas/Metric' }
+            prMerged: { $ref: '#/components/schemas/Metric' }
+        sideExits:
+          type: object
+          required: [failed, cancelled]
+          properties:
+            failed: { $ref: '#/components/schemas/Metric' }
+            cancelled: { $ref: '#/components/schemas/Metric' }
+        residual:
+          type: object
+          required: [inProgress]
+          properties:
+            inProgress: { $ref: '#/components/schemas/Metric' }
+    CountPoint:
+      type: object
+      required: [date, value]
+      properties:
+        date: { type: string, format: date }
+        value: { type: integer }
+    SpendPoint:
+      type: object
+      required: [date, spendCents]
+      properties:
+        date: { type: string, format: date }
+        spendCents: { type: integer }
+    Trends:
+      description: >
+        Series values are exact integers -- a daily count or a daily cent total -- so no rounding
+        decision is delegated. Days inside coverage with no records are zero, never gaps. A missing
+        source yields state missing_data with an empty series, never a run of zeros.
+      type: object
+      required: [mergedPrsPerDay, spendPerDay]
+      properties:
+        mergedPrsPerDay:
+          type: object
+          required: [state, unit, points]
+          properties:
+            state: { type: string, enum: [ok, missing_data, unavailable_for_scope] }
+            unit: { type: string, enum: [count] }
+            reasonCode: { type: string }
+            reason: { type: string }
+            points: { type: array, items: { $ref: '#/components/schemas/CountPoint' } }
+        spendPerDay:
+          type: object
+          required: [state, unit, points]
+          properties:
+            state: { type: string, enum: [ok, missing_data, unavailable_for_scope] }
+            unit: { type: string, enum: [usdCents] }
+            reasonCode: { type: string }
+            reason: { type: string }
+            points: { type: array, items: { $ref: '#/components/schemas/SpendPoint' } }
+    ComparisonRow:
+      type: object
+      required: [scopeId, scopeName, terminalTaskCount, taskCompletionRate, terminalMergeRate,
+                 costPerMergedPr, codeChangeSpend]
+      properties:
+        scopeId: { type: string, format: uuid }
+        scopeName: { type: string }
+        terminalTaskCount:
+          description: The AC-05.5 sort key -- eligible terminal tasks, descending.
+          type: integer
+        taskCompletionRate: { $ref: '#/components/schemas/Metric' }
+        terminalMergeRate: { $ref: '#/components/schemas/Metric' }
+        costPerMergedPr: { $ref: '#/components/schemas/Metric' }
+        codeChangeSpend:
+          description: >
+            This row's own eligible code-change spend, whole dollars (contract 8.6). Supplied so
+            "no merged PRs in this period" can keep spend on screen without the client summing the
+            organisation-scope spend trend, which is a different population.
+          $ref: '#/components/schemas/Metric'
+    BenchmarkScope:
+      description: >
+        What the benchmark actually covers, stated rather than deduced, so AC-05.2 and AC-05.3
+        labels are server-determined.
+      type: object
+      required: [teamFilterIgnored, repositoryFilterApplied, includesSelectedTeam,
+                 mayIncludeUndisplayedTeams]
+      properties:
+        teamFilterIgnored: { type: boolean }
+        repositoryFilterApplied: { type: boolean }
+        includesSelectedTeam: { type: boolean }
+        mayIncludeUndisplayedTeams: { type: boolean }
+    Benchmark:
+      type: object
+      required: [scope, taskCompletionRate, terminalMergeRate, costPerMergedPr, codeChangeSpend]
+      properties:
+        scope: { $ref: '#/components/schemas/BenchmarkScope' }
+        taskCompletionRate: { $ref: '#/components/schemas/Metric' }
+        terminalMergeRate: { $ref: '#/components/schemas/Metric' }
+        costPerMergedPr: { $ref: '#/components/schemas/Metric' }
+        codeChangeSpend: { $ref: '#/components/schemas/Metric' }
+    ComparisonTable:
+      type: object
+      required: [grouping, rows, benchmark]
+      properties:
+        grouping: { type: string, enum: [teams, repositories] }
+        rows: { type: array, items: { $ref: '#/components/schemas/ComparisonRow' } }
+        benchmark: { $ref: '#/components/schemas/Benchmark' }
+    FindingLink:
+      description: >
+        A tri-state patch on the current selection. A key that is absent means preserve; a key
+        present with null means clear the filter; a key with a value means set it. Budget links
+        clear the repository restriction because budgets have no repository allocation; non-budget
+        links preserve the other dimension so the population is narrowed, never broadened.
+        No field ever carries a denied domain.
+      type: object
+      required: [section]
+      properties:
+        section: { type: string, enum: [spendTrend, comparisonTable, attention] }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        teamId: { type: [string, 'null'], format: uuid }
+        repositoryId: { type: [string, 'null'], format: uuid }
+        grouping: { type: string, enum: [teams, repositories] }
+        focusRowId: { type: string, format: uuid }
+        periodChanged: { type: boolean }
+    FailureReasonGroups:
+      description: >
+        Terminal failure reasons for a failure-spike finding's own scope and current window,
+        grouped exactly as `00-research.md` 6.4 fixes the grouping: agent (agent_gave_up,
+        tests_failed), platform (timeout, internal_error, rate_limited) and policy
+        (sandbox_denied). The grouping is what earns a place -- it separates what the agent did
+        wrong from what the platform did wrong from what policy blocked -- so the three group
+        counts are carried and per-reason detail is not. Exact integers; the groups partition the
+        window's failed tasks and therefore sum to `failedTasks`. This is the response shape only:
+        the calculation lands with the rule, and no standalone failure-reason chart exists
+        (`00-research.md` 10.1, AC-06.10).
+      type: object
+      required: [agent, platform, policy]
+      properties:
+        agent: { type: integer }
+        platform: { type: integer }
+        policy: { type: integer }
+    FindingEvidence:
+      description: >
+        Rule-specific evidence, carried inside the finding (AC-06.2). `domain` is present only for
+        an ADMIN; for a VIEWER the key is absent entirely, while every count is identical.
+      type: object
+      properties:
+        domain: { type: string }
+        failedTasks: { type: integer }
+        failureReasons: { $ref: '#/components/schemas/FailureReasonGroups' }
+        distinctTasks: { type: integer }
+        distinctUsers: { type: integer }
+        thresholdTasks: { type: integer }
+        thresholdUsers: { type: integer }
+        currentRate: { $ref: '#/components/schemas/Display' }
+        baselineRate: { $ref: '#/components/schemas/Display' }
+        thresholdPercentagePoints: { $ref: '#/components/schemas/Display' }
+        budgetCents: { type: integer }
+        monthToDateSpendCents: { type: integer }
+        elapsedDays: { type: integer }
+        daysInMonth: { type: integer }
+        forecast: { $ref: '#/components/schemas/Display' }
+        overrun: { $ref: '#/components/schemas/Display' }
+    Finding:
+      type: object
+      required: [id, ruleType, severity, scopeType, scopeId, scopeName, evidence, magnitude,
+                 evaluationPeriod, link]
+      properties:
+        id:
+          description: >
+            Opaque, stable across restarts and recomputation: HMAC-SHA-256 over a purpose/version
+            prefix, the organisation and the contract 6.5 internal identity. Evidence, severity,
+            magnitude and rank are excluded from the input, so the same finding keeps the same id
+            when it is recomputed for a narrower scope. It grants no access and carries no domain.
+          type: string
+        ruleType:
+          type: string
+          enum: [budget_risk, task_failure_spike, merge_rate_decline, network_policy_friction]
+        severity: { type: string, enum: [HIGH, MEDIUM] }
+        scopeType: { type: string, enum: [organisation, team, repository] }
+        scopeId: { type: [string, 'null'], format: uuid }
+        scopeName: { type: string }
+        evidence: { $ref: '#/components/schemas/FindingEvidence' }
+        magnitude: { $ref: '#/components/schemas/Display' }
+        evaluationPeriod:
+          description: Budget findings carry their own month, never the dashboard range (contract 6.1).
+          type: object
+          required: [from, to]
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+        link: { $ref: '#/components/schemas/FindingLink' }
+    EvaluationLimit:
+      type: object
+      required: [ruleType, scopeType, state, reasonCode, reason]
+      properties:
+        ruleType:
+          type: string
+          enum: [budget_risk, task_failure_spike, merge_rate_decline, network_policy_friction]
+        scopeType: { type: string, enum: [organisation, team, repository] }
+        scopeId: { type: [string, 'null'], format: uuid }
+        scopeName: { type: string }
+        state:
+          type: string
+          enum: [not_evaluated, insufficient_history, invalid_budget_configuration,
+                 unavailable_for_scope]
+        reasonCode: { type: string }
+        reason: { type: string }
+    Attention:
+      description: >
+        findings length, evaluationsCompleted and limits length together select exactly one of
+        AC-06.3's five panel states without the client inferring anything. A completed evaluation
+        is one (rule, scope) pair that reached a definite verdict; zero denied domains with
+        complete data is a completed evaluation with no finding, not a limit.
+      type: object
+      required: [findings, evaluationsCompleted, limits]
+      properties:
+        findings:
+          description: At most three, ranked by contract 6.5.
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/Finding' }
+        evaluationsCompleted: { type: integer }
+        limits: { type: array, items: { $ref: '#/components/schemas/EvaluationLimit' } }
+    DashboardResponse:
+      type: object
+      required: [coverage, selection, coverageWindows, kpis, funnel, trends, comparison, attention]
+      properties:
+        coverage: { $ref: '#/components/schemas/Coverage' }
+        selection: { $ref: '#/components/schemas/Selection' }
+        coverageWindows: { $ref: '#/components/schemas/CoverageWindows' }
+        kpis: { $ref: '#/components/schemas/Kpis' }
+        funnel: { $ref: '#/components/schemas/Funnel' }
+        trends: { $ref: '#/components/schemas/Trends' }
+        comparison: { $ref: '#/components/schemas/ComparisonTable' }
+        attention: { $ref: '#/components/schemas/Attention' }
     Problem:
       description: >
         RFC 9457 problem detail. `title` is always served — it falls back to the status reason

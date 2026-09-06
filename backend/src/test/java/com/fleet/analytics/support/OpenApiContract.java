@@ -69,6 +69,18 @@ public final class OpenApiContract {
         return VALIDATOR.validate(toRequest(result), builder.build());
     }
 
+    /**
+     * Validates a response body against a documented operation without needing a live endpoint,
+     * so a response contract can be proven usable before the code that produces it exists.
+     */
+    public static ValidationReport validateDocumentedResponse(String path, Request.Method method,
+            int status, String body) {
+        return VALIDATOR.validateResponse(path, method, SimpleResponse.Builder.status(status)
+                .withContentType("application/json")
+                .withBody(body)
+                .build());
+    }
+
     public static List<String> keys(ValidationReport report) {
         return report.getMessages().stream().map(ValidationReport.Message::getKey).toList();
     }
@@ -99,6 +111,11 @@ public final class OpenApiContract {
         if (servletRequest.getHeader("Authorization") != null) {
             builder.withHeader("Authorization", servletRequest.getHeader("Authorization"));
         }
+        // Query parameters were previously dropped entirely, so the validator silently checked
+        // every request as though it carried none -- a parameter outside its declared enum could
+        // not have been detected. Forward them so declared types, enums and requiredness apply.
+        servletRequest.getParameterMap()
+                .forEach((name, values) -> builder.withQueryParam(name, values));
         return builder.build();
     }
 

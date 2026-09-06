@@ -1,0 +1,287 @@
+{
+  "coverage": {
+    "dataAvailableFrom": "2025-12-01T00:00:00Z",
+    "dataThrough": "2026-02-04T00:00:00Z",
+    "revision": "contract-fixture-1"
+  },
+  "selection": {
+    "from": "2026-01-16", "to": "2026-01-31",
+    "startInclusive": "2026-01-16T00:00:00Z", "endExclusive": "2026-02-01T00:00:00Z",
+    "previousFrom": "2025-12-31", "previousTo": "2026-01-15",
+    "teamId": null, "repositoryId": null, "grouping": "teams",
+    "observationCutoff": "2026-02-03"
+  },
+  "coverageWindows": {
+    "current":            { "startInclusive": "2026-01-16T00:00:00Z", "endExclusive": "2026-02-01T00:00:00Z", "incompleteSources": [] },
+    "previousPeriod":     { "startInclusive": "2025-12-31T00:00:00Z", "endExclusive": "2026-01-16T00:00:00Z", "incompleteSources": [] },
+    "failureBaseline28d": { "startInclusive": "2025-12-19T00:00:00Z", "endExclusive": "2026-01-16T00:00:00Z", "incompleteSources": [] },
+    "budgetMonthToDate":  { "startInclusive": "2026-02-01T00:00:00Z", "endExclusive": "2026-02-04T00:00:00Z", "incompleteSources": [] },
+    "funnelObservation":  { "startInclusive": "2026-01-16T00:00:00Z", "endExclusive": "2026-02-04T00:00:00Z", "incompleteSources": [] }
+  },
+  "kpis": {
+    "mergedPrs": {
+      "state": "ok",
+      "display": { "value": "1", "unit": "count" },
+      "comparison": {
+        "kind": "relative", "state": "ok",
+        "display": { "value": "-50.0", "unit": "percent" },
+        "evidence": { "previousMergedPrs": 2 }
+      }
+    },
+    "terminalMergeRate": {
+      "state": "ok",
+      "display": { "value": "100.0", "unit": "percent" },
+      "evidence": { "mergedPrs": 1, "terminalPrs": 1 },
+      "comparison": {
+        "kind": "percentagePoints", "state": "insufficient_sample",
+        "reasonCode": "gate_terminal_prs_15",
+        "reason": "Comparison needs 15 terminal PRs in both periods; this period had 1 and the previous period had 3.",
+        "evidence": { "previousTerminalPrs": 3, "previousMergedPrs": 2 }
+      }
+    },
+    "costPerMergedPr": {
+      "state": "ok",
+      "display": { "value": "23.00", "unit": "usd" },
+      "evidence": { "mergedPrs": 1, "codeChangeSpendCents": 2300 },
+      "comparison": {
+        "kind": "absoluteUsd", "state": "insufficient_sample",
+        "reasonCode": "gate_merged_prs_15",
+        "reason": "Comparison needs 15 merged PRs in both periods; this period had 1 and the previous period had 2.",
+        "evidence": { "previousMergedPrs": 2, "previousCodeChangeSpendCents": 4700 }
+      }
+    },
+    "taskCompletionRate": {
+      "state": "ok",
+      "display": { "value": "50.0", "unit": "percent" },
+      "evidence": { "completedTasks": 1, "failedTasks": 1 },
+      "comparison": {
+        "kind": "percentagePoints", "state": "insufficient_sample",
+        "reasonCode": "gate_terminal_tasks_20",
+        "reason": "Comparison needs 20 completed or failed code-change tasks in both periods; this period had 2 and the previous period had 5.",
+        "evidence": { "previousCompletedTasks": 4, "previousFailedTasks": 1 }
+      }
+    },
+    "seats": {
+      "state": "ok",
+      "display": { "value": "2", "unit": "count" },
+      "licensedSeats": 6,
+      "comparison": {
+        "kind": "absoluteCount", "state": "ok",
+        "display": { "value": "-1", "unit": "count" },
+        "evidence": { "previousActiveSeats": 3 }
+      },
+      "utilisation": { "state": "ok", "display": { "value": "33.3", "unit": "percent" } }
+    }
+  },
+  "funnel": {
+    "observationCutoff": "2026-02-03",
+    "stages": {
+      "started":   { "state": "ok", "display": { "value": "4", "unit": "count" } },
+      "completed": { "state": "ok", "display": { "value": "1", "unit": "count" } },
+      "prOpened":  { "state": "ok", "display": { "value": "1", "unit": "count" } },
+      "prMerged":  { "state": "ok", "display": { "value": "1", "unit": "count" } }
+    },
+    "sideExits": {
+      "failed":    { "state": "ok", "display": { "value": "1", "unit": "count" } },
+      "cancelled": { "state": "ok", "display": { "value": "1", "unit": "count" } }
+    },
+    "residual": {
+      "inProgress": { "state": "ok", "display": { "value": "1", "unit": "count" } }
+    }
+  },
+  "trends": {
+    "mergedPrsPerDay": {
+      "state": "ok", "unit": "count",
+      "points": [
+        { "date": "2026-01-16", "value": 0 }, { "date": "2026-01-17", "value": 0 },
+        { "date": "2026-01-18", "value": 0 }, { "date": "2026-01-19", "value": 0 },
+        { "date": "2026-01-20", "value": 1 }, { "date": "2026-01-21", "value": 0 },
+        { "date": "2026-01-22", "value": 0 }, { "date": "2026-01-23", "value": 0 },
+        { "date": "2026-01-24", "value": 0 }, { "date": "2026-01-25", "value": 0 },
+        { "date": "2026-01-26", "value": 0 }, { "date": "2026-01-27", "value": 0 },
+        { "date": "2026-01-28", "value": 0 }, { "date": "2026-01-29", "value": 0 },
+        { "date": "2026-01-30", "value": 0 }, { "date": "2026-01-31", "value": 0 }
+      ]
+    },
+    "spendPerDay": {
+      "state": "ok", "unit": "usdCents",
+      "points": [
+        { "date": "2026-01-16", "spendCents": 0 },    { "date": "2026-01-17", "spendCents": 0 },
+        { "date": "2026-01-18", "spendCents": 150 },  { "date": "2026-01-19", "spendCents": 0 },
+        { "date": "2026-01-20", "spendCents": 0 },    { "date": "2026-01-21", "spendCents": 0 },
+        { "date": "2026-01-22", "spendCents": 350 },  { "date": "2026-01-23", "spendCents": 0 },
+        { "date": "2026-01-24", "spendCents": 0 },    { "date": "2026-01-25", "spendCents": 0 },
+        { "date": "2026-01-26", "spendCents": 0 },    { "date": "2026-01-27", "spendCents": 0 },
+        { "date": "2026-01-28", "spendCents": 0 },    { "date": "2026-01-29", "spendCents": 0 },
+        { "date": "2026-01-30", "spendCents": 1800 }, { "date": "2026-01-31", "spendCents": 0 }
+      ]
+    }
+  },
+  "comparison": {
+    "grouping": "teams",
+    "rows": [
+      {
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d002",
+        "scopeName": "Payments",
+        "terminalTaskCount": 2,
+        "taskCompletionRate": {
+          "state": "ok",
+          "display": { "value": "50.0", "unit": "percent" },
+          "evidence": { "completedTasks": 1, "failedTasks": 1 },
+          "comparison": {
+            "kind": "percentagePoints", "state": "insufficient_sample",
+            "reasonCode": "gate_terminal_tasks_20",
+            "reason": "Comparison with the organisation benchmark needs 20 completed or failed code-change tasks in this row; it has 2."
+          }
+        },
+        "terminalMergeRate": {
+          "state": "no_denominator",
+          "reasonCode": "no_terminal_prs",
+          "reason": "No PRs reached a terminal state in this period, so a merge rate is not defined.",
+          "evidence": { "mergedPrs": 0, "terminalPrs": 0 },
+          "comparison": {
+            "kind": "percentagePoints", "state": "no_denominator",
+            "reasonCode": "no_terminal_prs",
+            "reason": "This row has no terminal PRs, so there is no merge rate to compare."
+          }
+        },
+        "costPerMergedPr": {
+          "state": "no_denominator",
+          "reasonCode": "no_merged_prs",
+          "reason": "No merged PRs in this period, so cost per merged PR is not defined.",
+          "evidence": { "mergedPrs": 0, "codeChangeSpendCents": 2300 },
+          "comparison": {
+            "kind": "absoluteUsd", "state": "no_denominator",
+            "reasonCode": "no_merged_prs",
+            "reason": "This row has no merged PRs, so there is no unit cost to compare."
+          }
+        },
+        "codeChangeSpend": {
+          "state": "ok",
+          "display": { "value": "23", "unit": "usd" },
+          "roundsToZero": false,
+          "evidence": { "codeChangeSpendCents": 2300 }
+        }
+      },
+      {
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d001",
+        "scopeName": "Platform",
+        "terminalTaskCount": 0,
+        "taskCompletionRate": {
+          "state": "no_denominator",
+          "reasonCode": "no_terminal_tasks",
+          "reason": "No code-change tasks reached a terminal state in this period, so a completion rate is not defined.",
+          "evidence": { "completedTasks": 0, "failedTasks": 0 },
+          "comparison": {
+            "kind": "percentagePoints", "state": "no_denominator",
+            "reasonCode": "no_terminal_tasks",
+            "reason": "This row has no terminal tasks, so there is no completion rate to compare."
+          }
+        },
+        "terminalMergeRate": {
+          "state": "ok",
+          "display": { "value": "100.0", "unit": "percent" },
+          "evidence": { "mergedPrs": 1, "terminalPrs": 1 },
+          "comparison": {
+            "kind": "percentagePoints", "state": "insufficient_sample",
+            "reasonCode": "gate_terminal_prs_15",
+            "reason": "Comparison with the organisation benchmark needs 15 terminal PRs in this row; it has 1."
+          }
+        },
+        "costPerMergedPr": {
+          "state": "ok",
+          "display": { "value": "0.00", "unit": "usd" },
+          "evidence": { "mergedPrs": 1, "codeChangeSpendCents": 0 },
+          "comparison": {
+            "kind": "absoluteUsd", "state": "insufficient_sample",
+            "reasonCode": "gate_merged_prs_15",
+            "reason": "Comparison with the organisation benchmark needs 15 merged PRs in this row; it has 1."
+          }
+        },
+        "codeChangeSpend": {
+          "state": "ok",
+          "display": { "value": "0", "unit": "usd" },
+          "roundsToZero": false,
+          "evidence": { "codeChangeSpendCents": 0 }
+        }
+      }
+    ],
+    "benchmark": {
+      "scope": {
+        "teamFilterIgnored": true,
+        "repositoryFilterApplied": false,
+        "includesSelectedTeam": true,
+        "mayIncludeUndisplayedTeams": false
+      },
+      "taskCompletionRate": {
+        "state": "ok",
+        "display": { "value": "50.0", "unit": "percent" },
+        "evidence": { "completedTasks": 1, "failedTasks": 1 }
+      },
+      "terminalMergeRate": {
+        "state": "ok",
+        "display": { "value": "100.0", "unit": "percent" },
+        "evidence": { "mergedPrs": 1, "terminalPrs": 1 }
+      },
+      "costPerMergedPr": {
+        "state": "ok",
+        "display": { "value": "23.00", "unit": "usd" },
+        "evidence": { "mergedPrs": 1, "codeChangeSpendCents": 2300 }
+      },
+      "codeChangeSpend": {
+        "state": "ok",
+        "display": { "value": "23", "unit": "usd" },
+        "roundsToZero": false,
+        "evidence": { "codeChangeSpendCents": 2300 }
+      }
+    }
+  },
+  "attention": {
+    "findings": [],
+    "evaluationsCompleted": 5,
+    "limits": [
+      { "ruleType": "budget_risk", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d001", "scopeName": "Platform",
+        "state": "not_evaluated", "reasonCode": "no_budget_configured",
+        "reason": "No budget is configured for this team, so budget risk was not evaluated for it." },
+      { "ruleType": "budget_risk", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d002", "scopeName": "Payments",
+        "state": "not_evaluated", "reasonCode": "no_budget_configured",
+        "reason": "No budget is configured for this team, so budget risk was not evaluated for it." },
+
+      { "ruleType": "task_failure_spike", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d001", "scopeName": "Platform",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_tasks_20",
+        "reason": "Needs 20 completed or failed code-change tasks in the selected period and in the 28-day baseline; this scope had 0 and 5." },
+      { "ruleType": "task_failure_spike", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d002", "scopeName": "Payments",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_tasks_20",
+        "reason": "Needs 20 completed or failed code-change tasks in the selected period and in the 28-day baseline; this scope had 2 and 0." },
+      { "ruleType": "task_failure_spike", "scopeType": "repository",
+        "scopeId": "3b2e1d75-2e4c-4a8b-8d13-6f9c8b21e001", "scopeName": "repo-api",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_tasks_20",
+        "reason": "Needs 20 completed or failed code-change tasks in the selected period and in the 28-day baseline; this scope had 1 and 3." },
+      { "ruleType": "task_failure_spike", "scopeType": "repository",
+        "scopeId": "3b2e1d75-2e4c-4a8b-8d13-6f9c8b21e002", "scopeName": "repo-web",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_tasks_20",
+        "reason": "Needs 20 completed or failed code-change tasks in the selected period and in the 28-day baseline; this scope had 1 and 2." },
+
+      { "ruleType": "merge_rate_decline", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d001", "scopeName": "Platform",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_prs_15",
+        "reason": "Needs 15 terminal PRs in the selected period and in the previous period; this scope had 1 and 3." },
+      { "ruleType": "merge_rate_decline", "scopeType": "team",
+        "scopeId": "2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d002", "scopeName": "Payments",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_prs_15",
+        "reason": "Needs 15 terminal PRs in the selected period and in the previous period; this scope had 0 and 0." },
+      { "ruleType": "merge_rate_decline", "scopeType": "repository",
+        "scopeId": "3b2e1d75-2e4c-4a8b-8d13-6f9c8b21e001", "scopeName": "repo-api",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_prs_15",
+        "reason": "Needs 15 terminal PRs in the selected period and in the previous period; this scope had 0 and 3." },
+      { "ruleType": "merge_rate_decline", "scopeType": "repository",
+        "scopeId": "3b2e1d75-2e4c-4a8b-8d13-6f9c8b21e002", "scopeName": "repo-web",
+        "state": "not_evaluated", "reasonCode": "gate_terminal_prs_15",
+        "reason": "Needs 15 terminal PRs in the selected period and in the previous period; this scope had 1 and 0." }
+    ]
+  }
+}

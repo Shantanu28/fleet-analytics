@@ -4,7 +4,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -103,5 +105,131 @@ public final class Fixtures {
             s.setString(4, revision);
             s.execute();
         }
+    }
+
+    public static void budget(Connection c, UUID id, UUID orgId, UUID teamId, String sourceEntityId,
+            LocalDate periodMonth, long amountCents) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into budget(id, org_id, team_id, source, source_entity_id, period_month,"
+                        + " amount_cents) values (?, ?, ?, 'fixture', ?, ?, ?)")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, teamId);
+            s.setString(4, sourceEntityId);
+            s.setObject(5, periodMonth);
+            s.setLong(6, amountCents);
+            s.execute();
+        }
+    }
+
+    public static void task(Connection c, UUID id, UUID orgId, UUID teamId, UUID repoId, UUID userId,
+            String sourceEntityId, String taskType, OffsetDateTime createdAt,
+            String terminalStatus, OffsetDateTime terminalAt) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into task(id, org_id, team_id, repo_id, user_id, source, source_entity_id,"
+                        + " task_type, created_at, terminal_status, terminal_at)"
+                        + " values (?, ?, ?, ?, ?, 'fixture', ?, ?, ?, ?, ?)")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, teamId);
+            s.setObject(4, repoId);
+            s.setObject(5, userId);
+            s.setString(6, sourceEntityId);
+            s.setString(7, taskType);
+            s.setObject(8, createdAt);
+            s.setString(9, terminalStatus);
+            s.setObject(10, terminalAt);
+            s.execute();
+        }
+    }
+
+    public static void run(Connection c, UUID id, UUID orgId, UUID taskId, String sourceEntityId,
+            int attemptNo, OffsetDateTime startedAt, OffsetDateTime endedAt, String runStatus,
+            String failureReason) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into run(id, org_id, task_id, source, source_entity_id, attempt_no,"
+                        + " started_at, ended_at, run_status, failure_reason)"
+                        + " values (?, ?, ?, 'fixture', ?, ?, ?, ?, ?, ?)")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, taskId);
+            s.setString(4, sourceEntityId);
+            s.setInt(5, attemptNo);
+            s.setObject(6, startedAt);
+            s.setObject(7, endedAt);
+            s.setString(8, runStatus);
+            s.setString(9, failureReason);
+            s.execute();
+        }
+    }
+
+    public static void pullRequest(Connection c, UUID id, UUID orgId, UUID taskId, UUID runId,
+            String sourceEntityId, String targetBranch, OffsetDateTime openedAt,
+            String terminalState, OffsetDateTime terminalAt) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into pull_request(id, org_id, task_id, run_id, source, source_entity_id,"
+                        + " target_branch, opened_at, terminal_state, terminal_at)"
+                        + " values (?, ?, ?, ?, 'fixture', ?, ?, ?, ?, ?)")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, taskId);
+            s.setObject(4, runId);
+            s.setString(5, sourceEntityId);
+            s.setString(6, targetBranch);
+            s.setObject(7, openedAt);
+            s.setString(8, terminalState);
+            s.setObject(9, terminalAt);
+            s.execute();
+        }
+    }
+
+    public static void usage(Connection c, UUID id, UUID orgId, UUID runId, String sourceEntityId,
+            OffsetDateTime meteredAt, long costCents) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into usage_record(id, org_id, run_id, source, source_entity_id, metered_at,"
+                        + " cost_cents, model_tier) values (?, ?, ?, 'fixture', ?, ?, ?, 'standard')")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, runId);
+            s.setString(4, sourceEntityId);
+            s.setObject(5, meteredAt);
+            s.setLong(6, costCents);
+            s.execute();
+        }
+    }
+
+    /** {@code runId} may be null: a denial always names a task, and names a run only when known. */
+    public static void denial(Connection c, UUID id, UUID orgId, UUID taskId, UUID runId,
+            String sourceEntityId, String domain, OffsetDateTime occurredAt) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into denial_event(id, org_id, task_id, run_id, source, source_entity_id,"
+                        + " domain_raw, domain_normalised, occurred_at)"
+                        + " values (?, ?, ?, ?, 'fixture', ?, ?, ?, ?)")) {
+            s.setObject(1, id);
+            s.setObject(2, orgId);
+            s.setObject(3, taskId);
+            s.setObject(4, runId);
+            s.setString(5, sourceEntityId);
+            s.setString(6, domain);
+            s.setString(7, normalisedDomain(domain));
+            s.setObject(8, occurredAt);
+            s.execute();
+        }
+    }
+
+    /**
+     * Contract 6.4 normalisation: lowercase and trailing dot stripped. {@code domain_raw} keeps
+     * what the source reported. Locale.ROOT rather than the default locale, so a Turkish-locale
+     * JVM cannot lowercase {@code I} to a dotless {@code i} and split one domain into two.
+     *
+     * <p>This lives here because the friction rule counts distinct <em>normalised</em> domains: if
+     * fixtures stored {@code Registry.Corp.} unnormalised, that rule would see two domains where
+     * the contract sees one, and its sample gate would never be reached.
+     */
+    static String normalisedDomain(String domain) {
+        String lowercased = domain.toLowerCase(Locale.ROOT);
+        return lowercased.endsWith(".")
+                ? lowercased.substring(0, lowercased.length() - 1)
+                : lowercased;
     }
 }
