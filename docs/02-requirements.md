@@ -18,65 +18,20 @@
 
 **Demo framing.** The application is labelled as running on **synthetic demo data** (AC-01.2). The demo represents a **platform-admin viewer**, so synthetic denied domains are visible to it (AC-06.9). Real authentication and role enforcement are **production integration boundaries** (§7.2), not features built here; the demo demonstrates no authorisation security.
 
-## 2. Page structure and wireframe
+## 2. Page structure and visual reference
 
-Order is fixed by `00-research.md` §7: KPI row → funnel → trends → needs-attention → comparison table. Both trends are **separate single-axis charts**; no dual-axis chart is required. This is a layout sketch, not a component or CSS specification.
+Order is fixed by `00-research.md` §7: KPI row → funnel → trends → needs-attention → comparison table. Both trends are **separate single-axis charts**; no dual-axis chart is required.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Fleet Analytics — Organisation overview                                      │
-│ [ SYNTHETIC DEMO DATA ]   Data complete through 3 Feb 2026 (UTC)             │
-│ Viewing as: platform admin (demo)                                            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ FILTERS   Dates: (7d) (30d) (90d) (Custom • : 2026-01-01 to 2026-01-31)      │
-│           Team: [ All teams ▾ ]   Repository: [ All repositories ▾ ]         │
-│           Showing 1–31 Jan 2026 (inclusive, UTC)          [ Reset filters ]  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ KPI ROW — value · one comparison · one-line definition                        │
-│ ┌────────────┬────────────┬────────────┬────────────┬────────────┐          │
-│ │ Merged     │ Terminal   │ Cost per   │ Task       │ Active     │          │
-│ │ agent PRs  │ merge rate │ merged PR  │ completion │ seats      │          │
-│ │   212      │   71.2%    │  $41.18    │   88.0%    │  46 / 60   │          │
-│ │  +18.0%    │  +2.4 pp   │  −$3.10    │  −1.2 pp   │   +4       │          │
-│ │  vs prev.  │  vs prev.  │  vs prev.  │  vs prev.  │  vs prev.  │          │
-│ └────────────┴────────────┴────────────┴────────────┴────────────┘          │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ OUTCOME FUNNEL  (tasks)                                                      │
-│ Tasks started in 1–31 Jan 2026; outcomes observed through 3 Feb 2026.        │
-│   Started    ████████████████████████  240                                   │
-│   Completed  ██████████████████        180        ↳ failed 44 · cancelled 12 │
-│   PR opened  ███████████████           155        ↳ in progress 4 (residual) │
-│   PR merged  ███████████               118                                   │
-│   Recent cohorts have had less time to reach merge.                          │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ MERGED AGENT PRs OVER TIME (PRs/day)  │ AGENT SPEND OVER TIME (USD/day)      │
-│   12 ┤      ▁▃▅▂▇▃▁                   │   $900 ┤     ▂▅▃▇▄▂                  │
-│    0 ┼──────────────────  1–31 Jan    │     $0 ┼──────────────  1–31 Jan     │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ NEEDS ATTENTION — at most 3, computed, ranked (contract §6.5)                │
-│  [MEDIUM] Payments projected to spend $11,800 against a $10,000 budget       │
-│           for February 2026 — an 18% overrun.  → Inspect Payments spend      │
-│  [MEDIUM] repo-api failure rate up 10.0 pp vs the prior 28 days              │
-│           (24 terminal tasks). → Inspect repo-api                            │
-│  [MEDIUM] internal-registry.corp blocked 6 tasks across 4 users              │
-│           in Payments. → Inspect Payments                                    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ COMPARISON   View: ( Teams • ) ( Repositories )                              │
-│ ┌──────────────┬───────────────┬───────────────┬───────────────────┐        │
-│ │ Row          │ Completion    │ Merge rate    │ Cost / merged PR  │        │
-│ ├──────────────┼───────────────┼───────────────┼───────────────────┤        │
-│ │ Organisation │ 88.0%         │ 71.2%         │ $41.18            │        │
-│ │ (benchmark)  │ includes all  │ rows below    │                   │        │
-│ ├──────────────┼───────────────┼───────────────┼───────────────────┤        │
-│ │ Platform     │ 91.0% +3.0 pp │ 74.0% +2.8 pp │ $38.90  −$2.28    │        │
-│ │ Payments     │ 80.0% −8.0 pp │ 0.0%          │ — no merged PRs   │        │
-│ │              │               │ needs 15 term.│ in this period    │        │
-│ │              │               │ PRs to compare│                   │        │
-│ └──────────────┴───────────────┴───────────────┴───────────────────┘        │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+![Fleet Analytics desktop dashboard at 1440px](desktop-1440.png)
 
-*Illustrative numbers only; the authoritative worked values are contract §8.*
+[View the 375px mobile design](mobile-375.png)
+
+**How to read these images.**
+
+- They are the **approved layout and visual-hierarchy references** for the page — not a component, styling or CSS specification.
+- Their numbers illustrate **one synthetic scenario**. Implementation must calculate every displayed value from data using `01-metrics-contract.md`; dashboard results must not be hard-coded to match the screenshots, though a deterministic mock dataset may reproduce the illustrated scenario.
+- The written acceptance criteria in §3 and the non-functional requirements in §5 govern **behaviour and accessibility**. Static images illustrate selected states; they do not verify implemented interactions, keyboard accessibility, or loading, error, empty and unavailable-state behaviour.
+- If an image conflicts with `01-metrics-contract.md` or with a written acceptance criterion, **follow the written specification and flag the discrepancy** rather than implementing the image.
 
 ## 3. User stories and acceptance criteria
 
