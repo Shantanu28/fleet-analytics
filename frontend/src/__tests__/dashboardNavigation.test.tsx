@@ -561,11 +561,12 @@ describe('following a network-friction finding', () => {
     expect(screen.getByRole('region', { name: /needs attention/i })).not.toHaveTextContent(
       /for 6 tasks across 4 people/i,
     )
-    expect(screen.queryByText(/no longer among the top three/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Findings recalculated for the selected filters.')).toBeVisible()
+    expect(document.querySelector('.finding[aria-current]')).toBeNull()
   })
 
-  /** If it does not survive, the panel says so — it never pins the old finding or its evidence. */
-  it('shows the reranked notice when the finding is gone', async () => {
+  /** The notice describes recalculation without claiming to track the previous finding. */
+  it('shows the recalculated notice when the destination has no findings', async () => {
     const user = userEvent.setup()
     window.history.replaceState(null, '', '/?from=2026-08-02&to=2026-08-31&grouping=teams')
     routeApi({
@@ -582,7 +583,7 @@ describe('following a network-friction finding', () => {
     const panel = await screen.findByRole('region', { name: /needs attention/i })
     await user.click(within(panel).getByRole('button', { name: /inspect payments/i }))
 
-    expect(await screen.findByText(/no longer among the top three/i)).toBeVisible()
+    expect(await screen.findByText('Findings recalculated for the selected filters.')).toBeVisible()
     const after = screen.getByRole('region', { name: /needs attention/i })
     expect(after).not.toHaveTextContent(/for 6 tasks across 4 people/i)
     expect(within(after).queryAllByRole('article')).toHaveLength(0)
@@ -680,9 +681,8 @@ describe('destination navigation', () => {
   })
 
   /**
-   * AC-06.7: the destination is the panel, not the finding. When the recomputed top three no longer
-   * contains the originating finding, the reranked explanation is exactly what the user needs to
-   * see — so the reveal must not depend on the finding surviving.
+   * AC-06.7: the destination is the panel, not an individual finding. Reveal it even when the
+   * recomputed response contains no findings.
    */
   it('lands at attention even when the followed friction finding disappears', async () => {
     const user = userEvent.setup()
@@ -705,7 +705,7 @@ describe('destination navigation', () => {
 
     await user.click(within(panel).getByRole('button', { name: /inspect payments/i }))
 
-    expect(await screen.findByText(/no longer among the top three/i)).toBeVisible()
+    expect(await screen.findByText('Findings recalculated for the selected filters.')).toBeVisible()
     await waitFor(() => expect(scrollSpy).toHaveBeenCalled())
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('region', { name: /needs attention/i })),

@@ -5,34 +5,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
-/** Both controls are required, and development key generation is not one of them. */
+/** The demo profile is the only switch; development and test profiles do not enable logins. */
 class DemoAccountPolicyTest {
 
-    private static boolean enabled(boolean accountsEnabled, String... activeProfiles) {
+    private static boolean enabled(String... activeProfiles) {
         MockEnvironment environment = new MockEnvironment();
         if (activeProfiles.length > 0) {
             environment.setProperty("spring.profiles.active", String.join(",", activeProfiles));
         }
-        return new DemoAccountPolicy(new DemoAccountProperties(accountsEnabled), environment)
-                .demoAccountsEnabled();
+        return new DemoAccountPolicy(environment).demoAccountsEnabled();
     }
 
     @Test
-    void requiresBothTheDemoProfileAndTheFlag() {
-        assertThat(enabled(true, "demo")).isTrue();
-        assertThat(enabled(false, "demo")).isFalse();
-        assertThat(enabled(true)).isFalse();
-        assertThat(enabled(false)).isFalse();
+    void theDemoProfileAloneEnablesDemoAccounts() {
+        assertThat(enabled("demo")).isTrue();
+        assertThat(enabled()).isFalse();
     }
 
     @Test
     void developmentProfileDoesNotEnableDemoAccounts() {
-        assertThat(enabled(true, "dev")).isFalse();
-        assertThat(enabled(true, "test")).isFalse();
+        assertThat(enabled("dev")).isFalse();
+        assertThat(enabled("test")).isFalse();
     }
 
     @Test
     void demoProfileAlongsideOthersStillCounts() {
-        assertThat(enabled(true, "test", "demo")).isTrue();
+        assertThat(enabled("test", "demo")).isTrue();
     }
 }

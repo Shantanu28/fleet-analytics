@@ -42,7 +42,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /** Real M3 HTTP/filter-chain integration over M4's dataset, in a dedicated database. */
-@SpringBootTest(classes = FleetAnalyticsApplication.class, properties = "fleet.demo.accounts-enabled=true")
+@SpringBootTest(classes = FleetAnalyticsApplication.class)
 @ActiveProfiles({"test", "demo"})
 @DirtiesContext
 @Testcontainers

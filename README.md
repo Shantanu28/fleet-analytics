@@ -17,10 +17,7 @@ make setup
 export DB_URL=jdbc:postgresql://127.0.0.1:5432/fleet
 make seed
 
-# Generate once for this local environment. Keep it outside Git and retain it across restarts.
-export FLEET_FINDINGS_ID_SECRET="$(openssl rand -base64 32)"
-
-FLEET_DEMO_ACCOUNTS=true ./mvnw -pl backend -Ddb.url="$DB_URL" spring-boot:run \
+./mvnw -pl backend -Ddb.url="$DB_URL" spring-boot:run \
   -Dspring-boot.run.main-class=com.fleet.analytics.FleetAnalyticsApplication \
   -Dspring-boot.run.profiles=dev,demo
 ```
@@ -40,7 +37,7 @@ Open the URL Vite prints (normally http://localhost:5173). The frontend proxies 
 
 These are public demo credentials for synthetic data only. Both roles see their organisation's dashboard; only ADMIN receives the denied-domain detail. Sign out, then sign into the other organisation to compare datasets.
 
-Demo accounts require both the `demo` profile and `FLEET_DEMO_ACCOUNTS=true`. The `dev` profile supplies ephemeral JWT keys; configured PEM keys take precedence and invalid configuration fails startup. The separate finding-ID secret is always required. [Authentication details](docs/04-technical-spec.md#51-authentication-and-redaction).
+The `demo` profile enables demo-account login; without it, those accounts cannot sign in. Never activate it in production. The `dev` profile separately supplies ephemeral JWT keys; configured PEM keys take precedence and invalid configuration fails startup. No separate finding secret is needed. [Authentication details](docs/04-technical-spec.md#51-authentication-and-redaction).
 
 Sign-out calls the logout API to revoke that token and immediately clears the browser's session and cached data. Other logins are unaffected. If server sign-out cannot be confirmed, the login page warns you. Tokens otherwise expire after 15 minutes, plus the configured clock-skew tolerance. Reloading loses the local session without calling logout; login is required again, then the URL's filters are restored.
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Fleet Analytics API
-  version: 0.5.0
+  version: 0.6.0
   description: >
     Login, token revocation on logout, the tenant-scoped context, and the dashboard response.
     Organisation scope comes from the verified token; no endpoint accepts an organisation parameter.
@@ -565,16 +565,9 @@ components:
         overrun: { $ref: '#/components/schemas/Display' }
     Finding:
       type: object
-      required: [id, ruleType, severity, scopeType, scopeId, scopeName, evidence, magnitude,
+      required: [ruleType, severity, scopeType, scopeId, scopeName, evidence, magnitude,
                  evaluationPeriod, link]
       properties:
-        id:
-          description: >
-            Opaque, stable across restarts and recomputation: HMAC-SHA-256 over a purpose/version
-            prefix, the organisation and the contract 6.5 internal identity. Evidence, severity,
-            magnitude and rank are excluded from the input, so the same finding keeps the same id
-            when it is recomputed for a narrower scope. It grants no access and carries no domain.
-          type: string
         ruleType:
           type: string
           enum: [budget_risk, task_failure_spike, merge_rate_decline, network_policy_friction]

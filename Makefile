@@ -32,7 +32,7 @@ setup: db-wait
 	cd frontend && npm ci
 
 ## seed: explicit M4 installer. Require an intentional target; migrate it separately first.
-## The seed launcher imports only datasource configuration and needs no JWT/HMAC secrets.
+## The seed launcher imports only datasource configuration and needs no JWT keys.
 seed:
 	@test -n "$${DB_URL:-}" || { echo "seed: set DB_URL to the intended isolated database" >&2; exit 1; }
 	./mvnw -pl backend -Ddb.url="$$DB_URL" -Ddb.user="$${DB_USER:-fleet}" -Ddb.password="$${DB_PASSWORD:-fleet}" spring-boot:run -Dspring-boot.run.main-class=com.fleet.analytics.seed.SeedApplication -Dspring-boot.run.profiles=seed

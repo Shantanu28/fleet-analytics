@@ -22,11 +22,8 @@ import com.fleet.analytics.metrics.model.RuleType;
 import com.fleet.analytics.metrics.model.ScopeFilters;
 import com.fleet.analytics.metrics.model.Severity;
 import com.fleet.analytics.metrics.model.TaskCounts;
-import com.fleet.analytics.security.FindingIdGenerator;
-import com.fleet.analytics.security.FindingIdProperties;
 import java.math.BigInteger;
 import java.time.LocalDate;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -40,7 +37,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 class FindingPresenterTest {
 
-    private static final UUID ORG = UUID.fromString("a0000000-0000-0000-0000-00000000000a");
     private static final UUID TEAM = UUID.fromString("2a1f0c64-1d3b-4f7a-9c02-5e8b7a10d002");
     private static final UUID REPO = UUID.fromString("3b2e1d75-2e4c-4a8b-8d13-6f9c8b21e001");
     private static final String DOMAIN = "internal-registry.corp";
@@ -48,10 +44,7 @@ class FindingPresenterTest {
     private static final LocalDate TO = LocalDate.of(2026, 1, 31);
 
     private final ObjectMapper json = new ObjectMapper();
-    private final FindingPresenter presenter = new FindingPresenter(
-            new FindingIdGenerator(new FindingIdProperties(
-                    Base64.getEncoder().encodeToString(new byte[32]))),
-            new FindingLinkBuilder());
+    private final FindingPresenter presenter = new FindingPresenter(new FindingLinkBuilder());
 
     private static DashboardSelection selection() {
         return new DashboardSelection(DateWindow.ofInclusiveDates(FROM, TO),
@@ -79,7 +72,7 @@ class FindingPresenterTest {
 
     private AttentionResponse present(List<FindingCandidate> findings, String role) {
         return presenter.present(
-                new AttentionResult(findings, findings.size(), List.of()), ORG, role, selection());
+                new AttentionResult(findings, findings.size(), List.of()), role, selection());
     }
 
     private String serialized(List<FindingCandidate> findings, String role) {
@@ -100,7 +93,7 @@ class FindingPresenterTest {
 
     /**
      * The whole serialized body, not one field. A leak that matters is the domain appearing
-     * anywhere at all — in evidence, in a link, in an explanation or in the identifier.
+     * anywhere at all — in evidence, in a link or in an explanation.
      */
     @Test
     void aViewerBodyContainsNoTraceOfTheDomain() {
@@ -110,9 +103,10 @@ class FindingPresenterTest {
                 .doesNotContain("internal-registry")
                 .doesNotContain("registry")
                 .doesNotContain("corp");
+        assertThat(json.readTree(body).get("findings").get(0).has("id")).isFalse();
     }
 
-    /** Everything except the domain is identical between roles — same id, counts, order, severity. */
+    /** Everything except the domain is identical between roles — counts, order, severity. */
     @Test
     void everythingButTheDomainIsIdenticalAcrossRoles() {
         RuleScope scope = RuleScope.team(TEAM, "Payments");
@@ -120,7 +114,6 @@ class FindingPresenterTest {
         FindingResponse viewer =
                 present(List.of(frictionFinding(scope)), "VIEWER").findings().getFirst();
 
-        assertThat(viewer.id()).isEqualTo(admin.id());
         assertThat(viewer.severity()).isEqualTo(admin.severity());
         assertThat(viewer.magnitude()).isEqualTo(admin.magnitude());
         assertThat(viewer.scopeId()).isEqualTo(admin.scopeId());

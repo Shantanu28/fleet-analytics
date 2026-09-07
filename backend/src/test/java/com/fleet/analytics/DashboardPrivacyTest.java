@@ -134,9 +134,9 @@ class DashboardPrivacyTest extends IntegrationTestBase {
         assertThat(finding.get("link").toString()).doesNotContainIgnoringCase("registry");
     }
 
-    /** AC-06.9: identical identifiers, counts, severity and ordering; only the domain differs. */
+    /** AC-06.9: identical counts, severity and ordering; only the domain differs. */
     @Test
-    void identifiersCountsSeverityAndOrderMatchAcrossRoles() throws Exception {
+    void countsSeverityAndOrderMatchAcrossRoles() throws Exception {
         JsonNode admin = json.readTree(dashboard("priv.admin").getResponse().getContentAsString())
                 .get("attention");
         JsonNode viewer = json.readTree(dashboard("priv.viewer").getResponse().getContentAsString())
@@ -150,7 +150,7 @@ class DashboardPrivacyTest extends IntegrationTestBase {
         for (int i = 0; i < admin.get("findings").size(); i++) {
             JsonNode adminFinding = admin.get("findings").get(i);
             JsonNode viewerFinding = viewer.get("findings").get(i);
-            assertThat(viewerFinding.get("id").asString()).isEqualTo(adminFinding.get("id").asString());
+            assertThat(viewerFinding.get("ruleType")).isEqualTo(adminFinding.get("ruleType"));
             assertThat(viewerFinding.get("severity").asString())
                     .isEqualTo(adminFinding.get("severity").asString());
             assertThat(viewerFinding.get("magnitude").toString())
@@ -175,13 +175,17 @@ class DashboardPrivacyTest extends IntegrationTestBase {
         assertThat(dashboard("priv.admin").getResponse().getContentAsString()).contains(DOMAIN);
     }
 
-    /** The public identifier is opaque: it must not encode the domain it was derived from. */
+    /** Internal finding identity is never part of either role's public response. */
     @Test
-    void thePublicFindingIdentifierRevealsNoDomain() throws Exception {
-        String id = json.readTree(dashboard("priv.admin").getResponse().getContentAsString())
-                .get("attention").get("findings").get(0).get("id").asString();
-
-        assertThat(id).doesNotContainIgnoringCase("registry").doesNotContainIgnoringCase("corp");
-        assertThat(id).isNotBlank();
+    void findingsExposeNoPublicOrInternalIdentity() throws Exception {
+        for (String user : new String[] {"priv.admin", "priv.viewer"}) {
+            JsonNode findings = json.readTree(dashboard(user).getResponse().getContentAsString())
+                    .get("attention").get("findings");
+            assertThat(findings).isNotEmpty();
+            for (JsonNode finding : findings) {
+                assertThat(finding.has("id")).isFalse();
+                assertThat(finding.has("identity")).isFalse();
+            }
+        }
     }
 }

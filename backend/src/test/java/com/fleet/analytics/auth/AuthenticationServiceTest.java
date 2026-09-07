@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fleet.analytics.data.Account;
 import com.fleet.analytics.data.UserAccounts;
 import com.fleet.analytics.security.DemoAccountPolicy;
-import com.fleet.analytics.security.DemoAccountProperties;
 import com.fleet.analytics.security.JwtIssuer;
 import com.fleet.analytics.security.JwtProperties;
 import com.fleet.analytics.security.PasswordEncoderFactory;
@@ -74,19 +73,18 @@ class AuthenticationServiceTest {
         return new Account(USER, ORG, "ADMIN", "Ada Lovelace", encoder.encode("correct horse"), demo);
     }
 
-    private AuthenticationService service(Map<String, Account> accounts, boolean demoEnabled,
-            String... profiles) {
+    private AuthenticationService service(Map<String, Account> accounts, String... profiles) {
         MockEnvironment environment = new MockEnvironment();
         if (profiles.length > 0) {
             environment.setProperty("spring.profiles.active", String.join(",", profiles));
         }
         return new AuthenticationService(new StubAccounts(accounts), encoder, issuer, properties,
-                new DemoAccountPolicy(new DemoAccountProperties(demoEnabled), environment));
+                new DemoAccountPolicy(environment));
     }
 
     @Test
     void issuesATokenAndTheIdentityTheClientNeeds() {
-        AuthenticationService service = service(Map.of("ada", account(false)), false);
+        AuthenticationService service = service(Map.of("ada", account(false)));
 
         LoginResponse response = service.authenticate(new LoginRequest("  Ada  ", "correct horse"));
 
@@ -104,7 +102,7 @@ class AuthenticationServiceTest {
      */
     @Test
     void verifiesAPasswordEvenWhenNoAccountMatches() {
-        AuthenticationService service = service(Map.of("ada", account(false)), false);
+        AuthenticationService service = service(Map.of("ada", account(false)));
         int before = encoder.matches.get();
 
         assertThatThrownBy(() -> service.authenticate(new LoginRequest("nobody", "whatever")))
@@ -116,7 +114,7 @@ class AuthenticationServiceTest {
     /** The dummy hash is encoded once at construction, never per rejected request. */
     @Test
     void doesNotEncodeAFreshHashPerFailedAttempt() {
-        AuthenticationService service = service(Map.of("ada", account(false)), false);
+        AuthenticationService service = service(Map.of("ada", account(false)));
         int after = encoder.encodes.get();
 
         for (int i = 0; i < 5; i++) {
@@ -129,7 +127,7 @@ class AuthenticationServiceTest {
 
     @Test
     void rejectsWrongPasswordBlankAndMissingFieldsIdentically() {
-        AuthenticationService service = service(Map.of("ada", account(false)), false);
+        AuthenticationService service = service(Map.of("ada", account(false)));
 
         assertThatThrownBy(() -> service.authenticate(new LoginRequest("ada", "wrong")))
                 .isInstanceOf(InvalidCredentialsException.class)
@@ -145,22 +143,22 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void demoAccountNeedsBothProfileAndFlagWhileOrdinaryAccountsAreUnaffected() {
+    void demoAccountNeedsTheDemoProfileWhileOrdinaryAccountsAreUnaffected() {
         Map<String, Account> both = Map.of("demo", account(true), "ada", account(false));
 
-        assertThatThrownBy(() -> service(both, true).authenticate(new LoginRequest("demo", "correct horse")))
-                .as("flag without the demo profile").isInstanceOf(InvalidCredentialsException.class);
-        assertThatThrownBy(() -> service(both, false, "demo")
-                .authenticate(new LoginRequest("demo", "correct horse")))
-                .as("profile without the flag").isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> service(both).authenticate(new LoginRequest("demo", "correct horse")))
+                .as("without the demo profile").isInstanceOf(InvalidCredentialsException.class);
 
-        assertThat(service(both, true, "demo").authenticate(new LoginRequest("demo", "correct horse"))
+        assertThat(service(both, "demo").authenticate(new LoginRequest("demo", "correct horse"))
                 .accessToken()).isNotBlank();
+        assertThatThrownBy(() -> service(both, "demo").authenticate(new LoginRequest("demo", "wrong")))
+                .as("demo access still requires the correct password")
+                .isInstanceOf(InvalidCredentialsException.class);
 
         // An ordinary account signs in under every one of those configurations.
-        assertThat(service(both, false).authenticate(new LoginRequest("ada", "correct horse"))
+        assertThat(service(both).authenticate(new LoginRequest("ada", "correct horse"))
                 .accessToken()).isNotBlank();
-        assertThat(service(both, true, "demo").authenticate(new LoginRequest("ada", "correct horse"))
+        assertThat(service(both, "demo").authenticate(new LoginRequest("ada", "correct horse"))
                 .accessToken()).isNotBlank();
     }
 
@@ -171,7 +169,7 @@ class AuthenticationServiceTest {
         assertThat(new LoginRequest("ada", "correct horse").toString())
                 .doesNotContain("correct horse").doesNotContain("ada");
 
-        LoginResponse response = service(Map.of("ada", account(false)), false)
+        LoginResponse response = service(Map.of("ada", account(false)))
                 .authenticate(new LoginRequest("ada", "correct horse"));
         assertThat(response.toString()).doesNotContain(response.accessToken()).contains("<redacted>");
     }

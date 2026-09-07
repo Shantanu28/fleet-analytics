@@ -271,7 +271,6 @@ export const dashboard: DashboardResponse = {
 
 /** Budget: its own month, and a link that clears the repository restriction with an explicit null. */
 export const budgetFinding: Finding = {
-  id: 'finding-budget-1',
   ruleType: 'budget_risk',
   severity: 'MEDIUM',
   scopeType: 'team',
@@ -299,7 +298,6 @@ export const budgetFinding: Finding = {
 
 /** Failure spike on a repository: sets its own dimension, says nothing about the team. */
 export const failureFinding: Finding = {
-  id: 'finding-failure-1',
   ruleType: 'task_failure_spike',
   severity: 'MEDIUM',
   scopeType: 'repository',
@@ -325,7 +323,6 @@ export const failureFinding: Finding = {
 
 export function frictionFinding(domain?: string): Finding {
   return {
-    id: 'finding-friction-1',
     ruleType: 'network_policy_friction',
     severity: 'MEDIUM',
     scopeType: 'team',

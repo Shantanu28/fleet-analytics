@@ -348,7 +348,6 @@ class OpenApiConformanceTest extends IntegrationTestBase {
         try {
             return json.readTree("""
                     {
-                      "id": "f-opaque-1",
                       "ruleType": "task_failure_spike",
                       "severity": "MEDIUM",
                       "scopeType": "repository",

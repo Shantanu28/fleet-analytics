@@ -189,7 +189,7 @@ public class DashboardService {
         return assembler.assemble(publication, selection, coverage,
                 CoverageResolver.observationCutoff(publication), kpis, funnel, trends, table,
                 byScope, benchmark, attentionEvaluator.evaluate(attentionInputs),
-                organisationId, tenant.role());
+                tenant.role());
     }
 
     private PeriodPopulation population(

@@ -120,6 +120,10 @@ test('a blocked-destination finding recalculates the findings for its narrower s
   // and the panel re-evaluated, so the evidence on screen is the recomputed evidence.
   const attention = dashboardSections(page).attention
   await expect(attention).toBeVisible()
+  await expect(attention.getByRole('status')).toHaveText(
+    'Findings recalculated for the selected filters.',
+  )
+  await expect(attention.locator('article[aria-current]')).toHaveCount(0)
   // The panel is the destination, and it is reached whether or not the finding survived — the
   // recomputed answer is what the user came for.
   await expect(page.locator('#attention')).toBeFocused()

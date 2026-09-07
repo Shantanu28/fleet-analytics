@@ -51,14 +51,13 @@ export function DashboardPage() {
 /**
  * What a followed finding link needs the destination to do, once its data has arrived.
  *
- * Deliberately minimal and in memory only: a section to scroll to, a row to focus, the originating
- * finding's opaque id, and whether the reporting period changed. No token, no domain and no copy of
+ * Deliberately minimal and in memory only: a section to scroll to, a row to focus,
+ * and whether the reporting period changed. No token, no domain and no copy of
  * the finding — none of which belongs in a URL, in history, or in storage.
  */
 type Investigation = {
   readonly section: 'spendTrend' | 'comparisonTable' | 'attention'
   readonly focusRowId?: string
-  readonly findingId: string
   readonly ruleType: Finding['ruleType']
   readonly periodChanged: boolean
   /** Distinguishes one follow from the next, so revealing the same destination twice works. */
@@ -130,7 +129,6 @@ function AuthenticatedDashboard({ session }: { readonly session: Session }) {
     setInvestigation({
       section: finding.link.section,
       ...(finding.link.focusRowId === undefined ? {} : { focusRowId: finding.link.focusRowId }),
-      findingId: finding.id,
       ruleType: finding.ruleType,
       periodChanged: finding.link.periodChanged === true,
       expectedRequest: toSearchString(destination),
@@ -275,11 +273,9 @@ function AuthenticatedDashboard({ session }: { readonly session: Session }) {
           <AttentionPanel
             attention={data.attention}
             role={session.role}
-            investigation={
+            recalculated={
               activeInvestigation !== null &&
               activeInvestigation.ruleType === 'network_policy_friction'
-                ? { findingId: activeInvestigation.findingId }
-                : null
             }
             revealToken={activeInvestigation?.section === 'attention' ? revealToken : null}
             onFollow={followLink}

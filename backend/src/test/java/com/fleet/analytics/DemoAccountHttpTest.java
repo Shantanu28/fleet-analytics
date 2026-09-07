@@ -16,7 +16,7 @@ import org.springframework.http.MediaType;
 /**
  * The running application under the {@code test} profile: development keys are on, the demo profile
  * is not active, so demo accounts must stay inert while ordinary accounts sign in normally. The
- * full profile/flag matrix is covered in {@code DemoAccountPolicyTest} and
+ * profile cases are covered in {@code DemoAccountPolicyTest} and
  * {@code AuthenticationServiceTest}.
  */
 class DemoAccountHttpTest extends IntegrationTestBase {

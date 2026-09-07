@@ -68,7 +68,7 @@ public class DashboardAssembler {
             CoverageWindows coverageWindows, LocalDate observationCutoff, CoreKpis kpis,
             FunnelResult funnel, TrendResult trends, ComparisonTableResult table,
             Map<UUID, ScopePopulation> byScope, ScopePopulation benchmark,
-            AttentionResult attention, UUID organisationId, String role) {
+            AttentionResult attention, String role) {
         return new DashboardResponse(
                 coverage(publication),
                 selection(selection, observationCutoff),
@@ -77,7 +77,7 @@ public class DashboardAssembler {
                 funnel(funnel),
                 trends(trends),
                 comparison(table, byScope, benchmark, coverageWindows.current()),
-                findingPresenter.present(attention, organisationId, role, selection));
+                findingPresenter.present(attention, role, selection));
     }
 
     private CoverageResponse coverage(Coverage publication) {

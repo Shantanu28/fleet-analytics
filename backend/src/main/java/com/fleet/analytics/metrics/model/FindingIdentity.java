@@ -15,7 +15,7 @@ import java.util.UUID;
  * month, never the selected dashboard range.
  *
  * <p>This type is internal. It carries a denied domain for network-policy findings, so it must never
- * be serialized or logged — the public identifier is derived from it by an HMAC.
+ * be serialized or logged. It is used only for internal deduplication and ordering.
  */
 public record FindingIdentity(
         RuleType ruleType,

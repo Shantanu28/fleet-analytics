@@ -24,36 +24,21 @@ const RULE_LABEL: Record<RuleType, string> = {
 export function AttentionPanel({
   attention,
   role,
-  investigation,
+  recalculated,
   revealToken,
   onFollow,
 }: {
   readonly attention: Attention
   readonly role: Role
-  /** Set when the user arrived here by following a friction finding, so its outcome can be told. */
-  readonly investigation: { readonly findingId: string } | null
-  /**
-   * Non-null when this panel is a followed finding's destination (AC-06.7).
-   *
-   * Independent of whether the originating finding survived the recomputation: the destination is
-   * the panel, and the recomputed answer — finding or reranked notice — is what the user came for.
-   * Tying the reveal to the finding's survival would leave them stranded mid-page in the one case
-   * where an explanation matters most.
-   */
+  /** True only once a followed friction link's destination response is current. */
+  readonly recalculated: boolean
+  /** Reveal the destination panel even when recomputation returns no findings (AC-06.7). */
   readonly revealToken: string | null
   readonly onFollow: (finding: Finding) => void
 }) {
   const { findings, evaluationsCompleted, limits } = attention
   const hasFindings = findings.length > 0
   const hasLimits = limits.length > 0
-
-  // Compared by opaque id alone. The destination's findings were recomputed for the narrower scope,
-  // so the originating finding either reappears with *new* evidence or is genuinely gone.
-  const originating =
-    investigation === null
-      ? null
-      : (findings.find((finding) => finding.id === investigation.findingId) ?? null)
-  const reranked = investigation !== null && originating === null
 
   const reveal = useReveal(revealToken, true)
 
@@ -76,23 +61,19 @@ export function AttentionPanel({
         </div>
       </div>
 
-      {reranked && (
-        <p className="notice notice--reranked" role="status">
-          Findings were recalculated for this narrower scope, and the finding you followed is no
-          longer among the top three. What is shown below is the current result for this selection.
+      {recalculated && (
+        <p className="notice" role="status">
+          Findings recalculated for the selected filters.
         </p>
       )}
 
       {hasFindings ? (
         <ol className="attention__list">
-          {findings.map((finding) => (
-            <li key={finding.id}>
-              <FindingCard
-                finding={finding}
-                role={role}
-                highlighted={finding.id === originating?.id}
-                onFollow={onFollow}
-              />
+          {findings.map((finding, index) => (
+            // A local rendering key, not a public identity. Changed evidence resets disclosure
+            // state; the index distinguishes otherwise identical redacted findings (at most three).
+            <li key={`${JSON.stringify(finding)}:${index}`}>
+              <FindingCard finding={finding} role={role} onFollow={onFollow} />
             </li>
           ))}
         </ol>
@@ -116,21 +97,14 @@ export function AttentionPanel({
 function FindingCard({
   finding,
   role,
-  highlighted,
   onFollow,
 }: {
   readonly finding: Finding
   readonly role: Role
-  readonly highlighted: boolean
   readonly onFollow: (finding: Finding) => void
 }) {
-  const reveal = useReveal(highlighted ? 'finding' : null)
   return (
-    <article
-      ref={reveal}
-      className={highlighted ? 'finding finding--highlighted' : 'finding'}
-      {...(highlighted ? { 'aria-current': 'true' as const } : {})}
-    >
+    <article className="finding">
       <div className="finding__body">
         <p className="finding__meta">
           {/* Severity is a word, not a colour (AC-08.6). */}

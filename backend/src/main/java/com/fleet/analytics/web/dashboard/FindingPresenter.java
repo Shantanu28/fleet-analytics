@@ -11,10 +11,8 @@ import com.fleet.analytics.metrics.model.FindingCandidate;
 import com.fleet.analytics.metrics.model.PrCounts;
 import com.fleet.analytics.metrics.model.RuleEvidence;
 import com.fleet.analytics.metrics.rules.BudgetRiskRule;
-import com.fleet.analytics.security.FindingIdGenerator;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,7 +23,7 @@ import org.springframework.stereotype.Component;
  * delete the domain — fails the moment a new field, a nested copy or a log line carries it, and
  * fails silently. Here a VIEWER's evidence is a different object that never held the domain at all.
  *
- * <p>Everything else is identical between roles: the identifier, every count, severity, ranking,
+ * <p>Everything else is identical between roles: every count, severity, ranking,
  * scope and navigation. AC-06.9 makes that explicit — a VIEWER sees the same finding, minus one
  * field.
  */
@@ -35,18 +33,16 @@ public class FindingPresenter {
     /** ADMIN is the only role permitted to see a denied domain (research 9, AC-06.9). */
     private static final String ADMIN = "ADMIN";
 
-    private final FindingIdGenerator idGenerator;
     private final FindingLinkBuilder linkBuilder;
 
-    public FindingPresenter(FindingIdGenerator idGenerator, FindingLinkBuilder linkBuilder) {
-        this.idGenerator = idGenerator;
+    public FindingPresenter(FindingLinkBuilder linkBuilder) {
         this.linkBuilder = linkBuilder;
     }
 
-    public AttentionResponse present(AttentionResult result, UUID organisationId, String role,
+    public AttentionResponse present(AttentionResult result, String role,
             DashboardSelection selection) {
         List<FindingResponse> findings = result.findings().stream()
-                .map(finding -> present(finding, organisationId, role, selection))
+                .map(finding -> present(finding, role, selection))
                 .toList();
         List<EvaluationLimitResponse> limits = result.limits().stream()
                 .map(FindingPresenter::present)
@@ -54,10 +50,9 @@ public class FindingPresenter {
         return new AttentionResponse(findings, result.evaluationsCompleted(), limits);
     }
 
-    private FindingResponse present(FindingCandidate finding, UUID organisationId, String role,
+    private FindingResponse present(FindingCandidate finding, String role,
             DashboardSelection selection) {
         return new FindingResponse(
-                idGenerator.publicId(organisationId, finding.identity()),
                 finding.ruleType().wireName(),
                 finding.severity().wireName(),
                 finding.scope().scopeType().wireName(),

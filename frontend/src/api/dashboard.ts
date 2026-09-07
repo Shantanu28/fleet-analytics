@@ -247,7 +247,6 @@ export type RuleType =
 export type ScopeType = 'organisation' | 'team' | 'repository'
 
 export type Finding = {
-  readonly id: string
   readonly ruleType: RuleType
   readonly severity: 'HIGH' | 'MEDIUM'
   readonly scopeType: ScopeType
@@ -636,7 +635,6 @@ function isFinding(value: unknown): value is Finding {
   if (!isRecord(value)) return false
   const period = value.evaluationPeriod
   return (
-    isText(value.id) &&
     isRuleType(value.ruleType) &&
     isOneOf(['HIGH', 'MEDIUM'] as const)(value.severity) &&
     isScopeType(value.scopeType) &&

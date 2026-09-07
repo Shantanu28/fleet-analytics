@@ -367,7 +367,7 @@ async function main() {
     './mvnw',
     [
       '-pl', 'backend', ...mavenDb, 'spring-boot:run',
-      // Demo logins need both the profile and the flag; generated dev keys need both too.
+      // Demo logins need the demo profile; generated keys separately need dev/test and its key flag.
       '-Dspring-boot.run.profiles=dev,demo',
     ],
     {
@@ -376,12 +376,6 @@ async function main() {
         ...appDb,
         SERVER_PORT: apiPort,
         FLEET_DEV_KEYS: 'true',
-        FLEET_DEMO_ACCOUNTS: 'true',
-        // Fail-closed HMAC configuration is not weakened: a real key is supplied, generated per run
-        // and never written down. Finding ids are stable within a run and differ between runs,
-        // which is exactly what the journeys need and all they need.
-        FLEET_FINDINGS_ID_SECRET:
-          process.env.FLEET_FINDINGS_ID_SECRET ?? randomBytes(32).toString('base64'),
       },
       // An HTTP response proves the server is listening. Authenticated fixture reads subsequently
       // prove the datasource and seeded data work; an unauthenticated 401 alone cannot do that.

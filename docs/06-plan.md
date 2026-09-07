@@ -83,7 +83,31 @@ Final local verification on 7 September 2026:
 | Independent review and document checks | Encoding bypass corrected and re-reviewed; no remaining actionable findings; diff whitespace and local link targets checked |
 
 No legacy-token fallback, new dependency, refresh flow or second authentication mechanism was added.
-This follow-up is not yet committed or verified in remote CI.
+Committed in `bda350c`; remote CI has not been verified here.
+
+## Finding-navigation simplification
+
+Removed public finding IDs and their dedicated secret. Internal deduplication and ranking stay
+unchanged. Following a network-friction link fetches fresh results and shows a recalculation notice,
+without matching or highlighting the original finding. Authentication and redaction are unchanged.
+
+Local checks on 7 September 2026: `make test` passed with 426 backend tests, 210 frontend tests,
+type-checking and a production build. The two runner/diagnostics regressions also passed with
+browser-launch permission. The lower backend count reflects removal of the obsolete ID tests.
+`make e2e` passed all 27 Chromium journeys on a fresh database without finding-secret configuration;
+the runner removed its own servers and container. Independent code review found no remaining
+actionable issues. This simplification is not yet committed or verified in remote CI.
+
+## Demo-profile simplification
+
+The active `demo` profile now permits demo-account login without a second flag. Accounts remain
+marked `is_demo_account`; without the profile their login is rejected. Password verification,
+ordinary-account login, JWT checks, tenant isolation and logout are unchanged.
+
+Verified on 7 September 2026: the profile-only test failed before the change; `make test` then
+passed 426 backend and 210 frontend tests, type-checking and the production build. `make e2e`
+passed all 27 Chromium journeys with no demo-account flag; its isolated resources were cleaned up.
+Independent review found no actionable issues. Nothing was staged or committed by the agent.
 
 ## Remaining release checks
 

@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Profiles;
 
-/** Separate explicit command: no component scan, HTTP server, JWT/HMAC config or auto-migration. */
+/** Separate explicit command: no component scan, HTTP server, JWT config or auto-migration. */
 public final class SeedApplication {
     private static final Logger LOG = LoggerFactory.getLogger(SeedApplication.class);
 

@@ -118,7 +118,7 @@ Late events can correct facts and trigger rebuilding of affected summaries befor
 
 The identity provider establishes identity; the organisation service determines current membership and permissions. The analytics service authorises tenant and filters before querying and redacts restricted evidence before serialization. Historical task attribution never grants current access. Producer credentials and source-to-tenant mappings form a separate ingestion trust boundary.
 
-Prototype ADMIN and VIEWER accounts share their organisation's dashboard; only ADMIN sees denied-domain detail. Raw domains and internal domain-bearing identifiers must not leak through other fields or links. The technical spec defines keyed pseudonymous finding IDs: stable correlation is accepted, not claimed to be anonymity.
+Prototype ADMIN and VIEWER accounts share their organisation's dashboard; only ADMIN sees denied-domain detail. Raw domains and internal domain-bearing identities must not leak through other fields or links. Finding identity stays inside the rule engine for deduplication and ranking. The API returns no finding ID; navigation shows recalculated results for the selected filters.
 
 Production requires least-privilege credentials, encrypted transport/storage, secret rotation, storage-level isolation safeguards and revocation-aware caching. The prototype implements single-token logout using PostgreSQL; it does not demonstrate SSO, registration/reset, refresh tokens, logout-all-sessions or production hardening. Fleet collects operational metadata, not prompts, model responses or source-code contents.
 

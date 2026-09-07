@@ -19,10 +19,9 @@ import org.springframework.stereotype.Component;
  * cross-multiplied magnitude, then stable identifiers, and finally the full identity string. Step
  * five is what makes ties impossible even when a team and a repository share an id.
  *
- * <p>Nothing here reads a display string, a public HMAC id or a scope name. Sorting by a rounded
+ * <p>Nothing here reads a display string or a scope name. Sorting by a rounded
  * magnitude would let two different overruns tie; sorting by a name would let a rename or a
- * translation reorder the panel; sorting by the public id would make the order depend on the
- * configured secret.
+ * translation reorder the panel.
  */
 @Component
 public class FindingRanker {

@@ -51,6 +51,11 @@ tests cover network/server failures and late logout responses after another logi
 
 Mock the HTTP boundary, not component internals. Give each test an isolated TanStack Query client. Frontend fixtures contain already-computed metric values; do not duplicate backend formulas or create helpers solely to generate unit tests.
 
+Network-friction navigation tests require fresh evidence even for a cached destination. They check
+the recalculation notice and focus on the destination panel, including an empty response; they do
+not match individual findings across responses. API privacy tests verify that neither role receives
+a finding ID or internal identity, while ADMIN-only domain detail and shared counts remain correct.
+
 ## 5. Browser journeys
 
 **Implemented with Playwright**, Chromium only, one worker, against the production frontend build served by Vite preview, the real API and a seeded PostgreSQL database the runner creates and removes. See the [browser tooling choices](04-technical-spec.md#8-decisions-and-remaining-configuration).

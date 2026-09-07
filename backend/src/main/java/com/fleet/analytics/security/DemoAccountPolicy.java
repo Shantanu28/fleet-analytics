@@ -6,9 +6,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * Demo accounts require <em>both</em> the demo profile and {@code fleet.demo.accounts-enabled}.
- * Either alone leaves them unable to sign in, so a stray property in a deployed environment — or a
- * development profile enabled for its keys — cannot turn public credentials on.
+ * Demo accounts can sign in only while the demo profile is active.
+ * Development key generation alone never enables public demo credentials.
  */
 @Component
 public class DemoAccountPolicy {
@@ -18,9 +17,9 @@ public class DemoAccountPolicy {
 
     private final boolean enabled;
 
-    public DemoAccountPolicy(DemoAccountProperties properties, Environment environment) {
+    public DemoAccountPolicy(Environment environment) {
         List<String> active = Arrays.asList(environment.getActiveProfiles());
-        this.enabled = properties.accountsEnabled() && active.contains(DEMO_PROFILE);
+        this.enabled = active.contains(DEMO_PROFILE);
     }
 
     public boolean demoAccountsEnabled() {

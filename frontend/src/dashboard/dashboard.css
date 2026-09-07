@@ -214,8 +214,7 @@
   background: var(--error-soft);
 }
 
-.notice--period,
-.notice--reranked {
+.notice--period {
   border-left-color: var(--warn);
   background: var(--warn-soft);
 }
@@ -755,11 +754,6 @@
   background: var(--surface);
 }
 
-.finding--highlighted {
-  border-left-color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .finding__body {
   min-width: 0;
 }
@@ -881,4 +875,3 @@
     font-size: 1.625rem;
   }
 }
-

@@ -24,7 +24,6 @@ type ContextBody = {
 }
 
 type FindingBody = {
-  readonly id: string
   readonly ruleType: string
   readonly scopeType: string
   readonly scopeId?: string | null
@@ -121,7 +120,6 @@ export type Scopes = {
    * printed: assertions are written so a failure reports a boolean, not the value itself.
    */
   readonly frictionFinding: {
-    readonly id: string
     readonly domain: string
     readonly distinctTasks: number
     readonly distinctUsers: number
@@ -225,7 +223,7 @@ export async function resolveScopes(request: APIRequestContext): Promise<Scopes>
     budgetMonth: { from: budget.link.from, to: budget.link.to },
     failureSpikeRepository,
     frictionTeam,
-    frictionFinding: { id: frictionFinding.id, domain, distinctTasks, distinctUsers },
+    frictionFinding: { domain, distinctTasks, distinctUsers },
     emptyRepositoryInBudgetedTeam: named(context.repositories, empty.scopeId),
     emptyDay: openingDay,
   }
