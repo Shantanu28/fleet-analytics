@@ -66,6 +66,12 @@ public final class SeedInstaller {
                     outcome = Outcome.UNCHANGED;
                 }
                 validate(db, expected);
+                // Bulk inserts do not create planner statistics. Collect them before declaring
+                // the dataset ready, including on a validated repeat run of an older install.
+                // Keep this inside the installation transaction and its existing writer lock.
+                for (Table<?> table : DemoDataset.TABLES) db.execute("analyze {0}", table);
+                db.execute("analyze {0}", DATASET_PUBLICATION);
+                db.execute("analyze {0}", SEED_MANIFEST);
                 connection.commit();
                 return outcome;
             } catch (RuntimeException | SQLException failure) {

@@ -49,6 +49,26 @@ class SeedInstallerTest {
     }
 
     @Test
+    void installsPlannerStatisticsWithoutWaitingForAutoAnalyze() throws Exception {
+        var tables = new ArrayList<Table<?>>(DemoDataset.TABLES);
+        tables.add(DATASET_PUBLICATION);
+        tables.add(SEED_MANIFEST);
+        for (var table : tables) {
+            db.execute("alter table {0} set (autovacuum_enabled = false)", table);
+        }
+        assertThat(db.fetchCount(DSL.table("pg_stats"), DSL.field("schemaname").eq("public")))
+                .isZero();
+
+        assertThat(new SeedInstaller(source).install()).isEqualTo(SeedInstaller.Outcome.INSTALLED);
+
+        for (var table : tables) {
+            assertThat(db.fetchCount(DSL.table("pg_stats"), DSL.field("schemaname").eq("public")
+                    .and(DSL.field("tablename").eq(table.getName()))))
+                    .as("planner statistics for %s", table.getName()).isPositive();
+        }
+    }
+
+    @Test
     void independentInstallsMatchBusinessDataDespiteRandomSaltsAndNoOpPreservesEveryRow() throws Exception {
         var installer = new SeedInstaller(source);
         assertThat(installer.install()).isEqualTo(SeedInstaller.Outcome.INSTALLED);
