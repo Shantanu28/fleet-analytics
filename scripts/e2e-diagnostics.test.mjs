@@ -43,7 +43,10 @@ test('a failed browser assertion publishes only allowlisted diagnostics', { time
     assert.equal(summary.tests.length, 1)
     assert.equal(summary.tests[0].status, 'failed')
     assert.equal(JSON.stringify(summary).includes(marker), false)
-    assert.deepEqual(Object.keys(summary.tests[0]).sort(), ['file', 'line', 'status'])
+    assert.deepEqual(Object.keys(summary.tests[0]).sort(), ['failureLines', 'file', 'line', 'status'])
+    assert.deepEqual(summary.tests[0].failureLines, [8],
+      'publish the failing assertion line, not merely the test declaration')
+    assert.match(result.stdout, /failure lines: 8/)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
