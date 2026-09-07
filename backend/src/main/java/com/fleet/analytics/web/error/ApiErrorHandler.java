@@ -2,6 +2,10 @@ package com.fleet.analytics.web.error;
 
 import com.fleet.analytics.auth.InvalidCredentialsException;
 import com.fleet.analytics.data.ContextUnavailableException;
+import com.fleet.analytics.data.analytics.InvalidAnalyticsFilterException;
+import com.fleet.analytics.web.dashboard.InvalidDashboardSelectionException;
+import com.fleet.analytics.web.dashboard.JsonSafeInteger;
+import com.fleet.analytics.web.dashboard.SelectionProblem;
 import java.net.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +49,48 @@ public class ApiErrorHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail onInvalidCredentials(InvalidCredentialsException e) {
         return problem(HttpStatus.UNAUTHORIZED, ProblemTypes.INVALID_CREDENTIALS, e.getMessage());
+    }
+
+    /**
+     * A rejected dashboard selection. The parser has already chosen the typed reason, so this only
+     * maps it to its published problem type. The message is the parser's own controlled text, which
+     * never names an identifier.
+     */
+    @ExceptionHandler(InvalidDashboardSelectionException.class)
+    public ProblemDetail onInvalidSelection(InvalidDashboardSelectionException e) {
+        return problem(HttpStatus.BAD_REQUEST, selectionProblemType(e.problem()), e.getMessage());
+    }
+
+    /**
+     * An unknown, malformed or foreign filter. All three produce this one response: reporting them
+     * differently would let a caller enumerate other organisations' teams and repositories.
+     */
+    @ExceptionHandler(InvalidAnalyticsFilterException.class)
+    public ProblemDetail onInvalidFilter(InvalidAnalyticsFilterException e) {
+        return problem(HttpStatus.BAD_REQUEST, ProblemTypes.UNKNOWN_FILTER, e.getMessage());
+    }
+
+    /**
+     * A response value outside the JSON-safe integer range. This is an internal invariant failure,
+     * not a caller mistake: the request was valid and an aggregate grew past what the contract's
+     * field can carry. Reporting it as a 400 would blame the client for a server-side limit.
+     */
+    @ExceptionHandler(JsonSafeInteger.UnsafeNumericRangeException.class)
+    public ProblemDetail onUnsafeNumericRange(JsonSafeInteger.UnsafeNumericRangeException e) {
+        log.error("Dashboard response value exceeds the JSON-safe integer range", e);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, ProblemTypes.INTERNAL_ERROR,
+                "The analytics response could not be produced.");
+    }
+
+    private static URI selectionProblemType(SelectionProblem problem) {
+        return switch (problem) {
+            case INVALID_DATE_FORMAT -> ProblemTypes.INVALID_DATE_FORMAT;
+            case REVERSED_DATE_RANGE -> ProblemTypes.REVERSED_DATE_RANGE;
+            case INCOMPLETE_DATE_RANGE -> ProblemTypes.INCOMPLETE_DATE_RANGE;
+            case RANGE_OUTSIDE_COVERAGE -> ProblemTypes.RANGE_OUTSIDE_COVERAGE;
+            case UNKNOWN_FILTER -> ProblemTypes.UNKNOWN_FILTER;
+            case INVALID_GROUPING -> ProblemTypes.INVALID_GROUPING;
+        };
     }
 
     /** Missing tenant metadata: a broken dataset, reported as a server fault with no detail. */

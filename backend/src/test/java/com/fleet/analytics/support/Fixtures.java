@@ -107,6 +107,25 @@ public final class Fixtures {
         }
     }
 
+    /**
+     * One {@code source_day_coverage} row. Coverage is metadata, never inferred from whether
+     * business rows exist, so a fixture that wants a covered day must say so explicitly (A.5).
+     */
+    public static void sourceDay(Connection c, UUID orgId, String logicalSource, LocalDate day,
+            boolean complete) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement(
+                "insert into source_day_coverage(org_id, logical_source, day, is_complete)"
+                        + " values (?, ?, ?, ?)"
+                        + " on conflict (org_id, logical_source, day) do update"
+                        + " set is_complete = excluded.is_complete")) {
+            s.setObject(1, orgId);
+            s.setString(2, logicalSource);
+            s.setObject(3, day);
+            s.setBoolean(4, complete);
+            s.execute();
+        }
+    }
+
     public static void budget(Connection c, UUID id, UUID orgId, UUID teamId, String sourceEntityId,
             LocalDate periodMonth, long amountCents) throws SQLException {
         try (PreparedStatement s = c.prepareStatement(

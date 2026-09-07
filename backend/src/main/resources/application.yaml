@@ -20,6 +20,15 @@ fleet:
     # Fail closed. Generation additionally requires an allowed profile (dev or test): this flag
     # alone, in any other profile, does nothing and startup fails.
     dev-keys-enabled: ${FLEET_DEV_KEYS:false}
+  findings:
+    # Public finding identifiers are HMAC-SHA-256 over an internal identity. Base64, at least 32
+    # decoded bytes, and deliberately independent of every JWT setting: rotating a signing key must
+    # not silently change every finding id.
+    #
+    # There is no generated fallback in any profile, including dev. An ephemeral key would produce
+    # ids that change on every restart while every test still passed. Startup fails without it --
+    # set FLEET_FINDINGS_ID_SECRET, e.g. `openssl rand -base64 32`.
+    id-secret: ${FLEET_FINDINGS_ID_SECRET:}
   demo:
     # Half of the demo control. The `demo` profile must also be active; enabling development key
     # generation never enables demo accounts.

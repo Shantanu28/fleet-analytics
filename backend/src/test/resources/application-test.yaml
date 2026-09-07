@@ -7,6 +7,12 @@ fleet:
     # instead of key material in the repository. Tests that assert key configuration override this.
     dev-keys-enabled: true
 
+  findings:
+    # A clearly synthetic, non-secret test key: 32 bytes of 0x2A, Base64-encoded. Committed on
+    # purpose -- finding ids have no generated fallback, so tests must supply a real key, and this
+    # one is obviously not production material.
+    id-secret: "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio="
+
 logging:
   level:
     org.springframework.security: warn

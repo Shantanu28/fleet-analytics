@@ -141,9 +141,9 @@ class OpenApiConformanceTest extends IntegrationTestBase {
      * enum. This is the negative control proving they now arrive: if parameters were still being
      * dropped, the report would say nothing about `grouping` and this test would fail.
      *
-     * <p>The dashboard endpoint is documented but not yet implemented, so the response is a 404
-     * that the contract does not describe. These assertions deliberately look only at
-     * request-parameter findings.
+     * <p>The endpoint now exists and rejects this grouping itself, so the response is a documented
+     * 400. These assertions still look only at request-parameter findings, which is what the
+     * adapter is responsible for.
      */
     @Test
     void forwardsQueryParametersSoTheValidatorChecksThem() throws Exception {
@@ -174,11 +174,61 @@ class OpenApiConformanceTest extends IntegrationTestBase {
     }
 
     /**
-     * The dashboard response contract is defined before the endpoint exists (slice A), so this is
-     * what proves it is actually usable: the worked example from the metrics contract fixture --
+     * A real dashboard response, end to end. The worked-example test below proves the schemas are
+     * expressible; this proves the endpoint actually produces something they accept — including the
+     * omitted-display convention and the flattened finding-link patch, both of which a hand-written
+     * fixture could satisfy while the serializer did something else.
+     */
+    @Test
+    void aRealDashboardResponseConformsToTheContract() throws Exception {
+        MvcResult result = mvc.perform(get("/api/v1/analytics/dashboard")
+                .param("from", "2026-01-16")
+                .param("to", "2026-01-31")
+                .header("Authorization", "Bearer " + token())).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        OpenApiContract.assertValid(result);
+    }
+
+    /**
+     * This organisation publishes an interval but has no source-day coverage rows at all, so every
+     * metric is legitimately unavailable. The response must still conform — an all-unavailable body
+     * exercises the omitted-display branch of every schema at once.
+     */
+    @Test
+    void anAllUnavailableDashboardResponseStillConforms() throws Exception {
+        MvcResult result = mvc.perform(get("/api/v1/analytics/dashboard")
+                .header("Authorization", "Bearer " + token())).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        OpenApiContract.assertValid(result);
+
+        JsonNode kpis = json.readTree(result.getResponse().getContentAsString()).get("kpis");
+        assertThat(kpis.get("mergedPrs").get("state").asString()).isEqualTo("missing_data");
+        assertThat(kpis.get("mergedPrs").has("display")).isFalse();
+        assertThat(kpis.get("mergedPrs").get("reasonCode").asString()).isEqualTo("source_not_covered");
+    }
+
+    /** A rejected selection's problem body is part of the contract too. */
+    @Test
+    void aRejectedDashboardSelectionConformsToTheContract() throws Exception {
+        MvcResult result = mvc.perform(get("/api/v1/analytics/dashboard")
+                .param("from", "2026-01-31")
+                .param("to", "2026-01-16")
+                .header("Authorization", "Bearer " + token())).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        OpenApiContract.assertValid(result);
+    }
+
+    /**
+     * The worked example from the metrics contract fixture, validated against the published
+     * schemas independently of the endpoint --
      * every KPI state, both funnel branches, all sixteen trend days, row spend evidence and the
      * fully derived attention evaluation -- validated against the published schemas. Without it,
-     * a schema mistake would only surface once slice D wired up a controller.
+     * it is the hand-checkable target the implementation is measured against, and it stays useful
+     * now that the endpoint exists because it pins the expected shape independently of the code
+     * that produces it.
      */
     @Test
     void theWorkedFixtureExampleValidatesAgainstTheDashboardSchema() throws Exception {
