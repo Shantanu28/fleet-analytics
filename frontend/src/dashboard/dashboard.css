@@ -344,6 +344,10 @@
 }
 
 .comparison {
+  /* The containing block for `.comparison__sr`. Without it that visually-hidden span is positioned
+     against a distant ancestor, so it escapes the comparison table's own `overflow-x` clip and
+     stretches the document past the viewport — a horizontal page scrollbar at 375px (AC-08.4). */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;

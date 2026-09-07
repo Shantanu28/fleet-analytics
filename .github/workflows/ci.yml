@@ -1,0 +1,101 @@
+# One job: build/database/API and React checks, runner regressions, then browser journeys.
+# Failures fail the job. Only a status-only diagnostics summary may be uploaded.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only. Nothing here comments, pushes, or publishes.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build, test and browser journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # The build database, for Flyway and jOOQ code generation and for `./mvnw verify`'s default
+    # datasource. Integration tests still create their own ephemeral Testcontainers databases, and
+    # `make e2e` creates and removes its own container independently of this one.
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_DB: fleet
+          POSTGRES_USER: fleet
+          POSTGRES_PASSWORD: fleet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleet -d fleet"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/fleet
+      DB_USER: fleet
+      DB_PASSWORD: fleet
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Code generation needs a migrated database, not compiled application code, so this comes
+      # before any compile. The Maven properties are the channel Flyway and jOOQ read.
+      - name: Migrate and generate jOOQ types
+        run: >-
+          ./mvnw -pl backend
+          -Ddb.url="$DB_URL" -Ddb.user="$DB_USER" -Ddb.password="$DB_PASSWORD"
+          flyway:migrate generate-sources
+
+      - name: Backend and frontend checks
+        run: make test
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Runner and diagnostics regressions
+        run: node --test scripts/e2e*.test.mjs
+
+      # Creates, seeds and removes its own PostgreSQL container; it does not use the service above.
+      - name: Browser journeys
+        run: make e2e
+
+      # Explicit allowlist: raw Playwright reports/error contexts may contain restricted values.
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: frontend/playwright-report/summary.json
+          retention-days: 7
+          if-no-files-found: ignore

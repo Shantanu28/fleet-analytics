@@ -5,8 +5,6 @@ info:
   description: >
     Login, the tenant-scoped analytics context, and the dashboard selection response.
     Organisation scope comes from the verified token; no endpoint accepts an organisation parameter.
-    The dashboard path is defined here ahead of its implementation (M3 slice A): the contract is
-    extended before the endpoint is built, so conformance tests have something to validate against.
 servers:
   - url: /api/v1
 paths:

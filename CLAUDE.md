@@ -1,52 +1,53 @@
 # CLAUDE.md — Fleet Analytics
 
-Org-level analytics dashboard for **Fleet**, an imaginary cloud coding-agent platform (engineers delegate tasks to agents running in isolated cloud sandboxes; the agents open pull requests). Built **spec-first**: the documents in `docs/` are the source of truth, and they land one commit at a time before any code does.
+Fleet Analytics is an organisation-level dashboard for an imaginary cloud coding-agent product.
+The prototype implements login, tenant-scoped APIs, metric calculations, deterministic seeding,
+the React dashboard and browser tests. Production ingestion infrastructure is a design only.
 
-## Where we are
+## Read the right source
 
-**M1 (foundation) and M2 (authentication and tenancy) are implemented.** Username/password login issues RS256 JWTs; a tenant-scoped `GET /api/v1/analytics/context` returns the organisation name, role, teams, repositories, licensed seats and coverage, resolved from the token alone. A minimal React UI signs in, shows the organisation and signs out. **69 backend tests and 28 frontend tests pass**, alongside frontend type-check and production build.
+- [Research](docs/00-research.md): what belongs in the product and why.
+- [Metrics contract](docs/01-metrics-contract.md): formulas, timestamps, states, filters and thresholds.
+- [Requirements](docs/02-requirements.md): user behaviour and acceptance criteria.
+- [Architecture](docs/03-architecture.md): production direction and prototype boundary.
+- [Technical guide](docs/04-technical-spec.md): implementation and configuration.
+- [Testing strategy](docs/05-testing-spec.md): verification layers.
+- [Execution record](docs/06-plan.md): milestone status and evidence.
+- [OpenAPI](contracts/openapi.yaml): HTTP interface.
 
-**Not built yet:** the analytics/dashboard API and metrics, the demo dataset generator, dashboard rendering, filters and findings. M3–M6 remain planned (`docs/06-plan.md`).
+Do not silently change product rules to match code. Flag conflicts and ask before changing scope.
+Keep acceptance IDs and metric definitions stable unless a change is explicitly approved.
 
-Specs: research (`00`), the metrics contract (`01`) and requirements (`02`) are landed; architecture (`03`), the technical spec (`04`), the testing spec (`05`) and the plan (`06`) are **drafts**. Do not scaffold, install, or invent requirements until a task explicitly asks for it.
+## Stack and coding rules
 
-## Document sequence, and what each one owns
+React, TypeScript, Vite and TanStack Query; Java 25, Spring Boot, PostgreSQL, Flyway and jOOQ.
+Authentication uses RS256 JWTs and Argon2id. Tests use JUnit/Testcontainers,
+Vitest/React Testing Library and Playwright Chromium. Versions live in build manifests.
 
-| Document | Owns | Status |
-|---|---|---|
-| `docs/00-research.md` | **product scope** — personas, the one question, which metrics earn a place, the frozen P0 (§7) | landed |
-| `docs/01-metrics-contract.md` | **calculations** — formulas, timestamp rules, exclusions, sample thresholds, benchmark scope, filter semantics, attention-rule evaluation | landed |
-| `docs/02-requirements.md` | **acceptance criteria** — user stories `US-n` and criteria `AC-n.m` | landed |
-| `docs/03-architecture.md` | **system boundaries** — the production design, and what the prototype mocks | **draft** |
-| `docs/04-technical-spec.md` | **implementation** — stack, project structure, API contracts | **draft** |
-| `docs/05-testing-spec.md` | **verification** — how every acceptance criterion is proven | **draft** |
-| `docs/06-plan.md` | **execution order** — milestones and the cut line | **draft** |
-| `docs/07-ai-workflow.md` | a **log kept during development**: how Claude Code was driven, and where it was wrong | maintained as work proceeds |
+Follow [.claude/rules/java.md](.claude/rules/java.md) for backend changes and
+[.claude/rules/react.md](.claude/rules/react.md) for frontend changes. New dependencies need approval.
 
-**ADRs** are added alongside significant decisions as those decisions are made. None exist yet — do not cite an ADR number that has not been written.
+## Working agreement
 
-Answer a question from the document that owns it: *what we build* is §00, *how a number is computed* is 01, *what counts as done* is 02. If a spec you need doesn't exist yet, say so and stop. If code and spec disagree, stop and ask — never silently change either.
+1. Inspect the current files and Git state before working; preserve unrelated changes.
+2. Describe intended changes and checks. Wait for approval unless the user has already approved that work.
+3. Use focused tests for real behaviour; reproduce bugs before fixing them. Do not add tests merely for counts.
+4. Run the relevant checks and report commands actually executed, failures and limitations.
+5. Stop for human review. The human stages and commits; do not stage, commit or push unless explicitly asked.
 
-## Stack
+Only edit documentation when authorised. Keep its language direct, link useful references by name,
+and avoid copying test counts or version lists into several files. Do not invent ADRs, evidence,
+completed CI runs or first-person decisions.
 
-Approved direction, specified in `docs/04-technical-spec.md`: **React + TypeScript** frontend with **TanStack Query** for server state; **Java 25 + Spring Boot** backend; **PostgreSQL**; **Flyway** for migrations; **jOOQ** for SQL, with no JPA/Hibernate. Authentication is username + password with short-lived JWTs.
+No real credentials, customer identities, private company information, prompts or source contents
+belong in fixtures or logs. Published demo credentials are explicitly synthetic. Raw Playwright
+diagnostics may contain restricted data: CI uploads only the safe summary, never raw artifacts.
 
-Vite and the M1 dependency versions are settled and in use. **TanStack Query is integrated** — brought forward to M2 for the context query. Settled in M2: RS256, Argon2id, Vitest with React Testing Library, and a test-scoped OpenAPI response validator. **Still unresolved** — do not assume: the browser-test tool and later-milestone choices. These are listed in `docs/04-technical-spec.md` §8 and must be approved before anything is added.
+## Commands and status
 
-## Conventions that apply from commit one
+Use the [README](README.md) for startup and the [execution record](docs/06-plan.md) for verification.
+`make dev` starts the dev profile only; it does not enable demo logins. Follow the documented
+`dev,demo` command for the seeded dashboard. Ordinary startup never seeds or repairs data.
 
-- Small commits. Format `type(scope): what and why`; add milestone and spec ids once they exist, e.g. `M3: metrics — merge rate (AC-1.2, AC-1.4)`. Types: chore, docs, feat, test, fix, ci, refactor.
-- The human stages and commits. Propose file groups and commit messages; do not stage, commit or push unless explicitly asked.
-- Never edit `docs/` unless the task says so — propose the change instead.
-- Never add a dependency that isn't listed in the technical spec.
-- Coding rules live in `.claude/rules/`: `java.md` (scoped to `backend/**`) and `react.md` (scoped to `frontend/**`). They cover conventions only — the `docs/` specifications stay authoritative for product behaviour.
-- No secrets and no assignment text in the repo. "No real company names" means no real customer identities or private company information in fixtures or examples; public vendor names and cited research sources are fine.
-
-## How to work a task
-
-1. Read this file and any spec section the task references.
-2. Plan mode first: list the files you'll touch and the tests you'll write. Wait for approval.
-3. Do the work. Run whatever gates exist.
-4. Report: what changed, which ACs are covered, any deviation from spec and why.
-
-This file grows with the repo: stack, commands, layout and coding rules are added in the commit that lands the technical spec.
+M6 implementation and review fixes are awaiting human review and commit. GitHub CI and a
+post-commit clean clone remain unverified. Do not describe those checks as successful.

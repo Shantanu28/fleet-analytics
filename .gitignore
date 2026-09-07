@@ -25,3 +25,9 @@ coverage/
 # Build output
 target/
 dist/
+
+# Browser diagnostics may contain restricted data; never commit them.
+playwright-report/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

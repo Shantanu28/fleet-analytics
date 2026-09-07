@@ -1,7 +1,7 @@
 # Prototype schema reference
 
-> Detailed prototype schema design retained from technical spec Appendix A. [Migrations](../../backend/src/main/resources/db/migration/) define implemented DDL: V1/V2 cover foundation, identity and context metadata; task/run/PR/usage/denial/budget and seed-manifest work remains planned. The tables below describe the complete target, not a claim that all constraints already exist.
-> Bare §3–§6 references refer to the [technical spec](../04-technical-spec.md); “contract” refers to the [metrics contract](../01-metrics-contract.md). A.1–A.6 are local sections. Production event schemas are [separate](event-schemas.md).
+> Detailed prototype schema design retained from technical spec Appendix A. [Migrations](../../backend/src/main/resources/db/migration/) define implemented DDL: V1–V4 cover identity/context, analytical records and the seed manifest. The tables below explain the implemented model; migrations are the executable source of truth.
+> Implementation choices are in the [technical spec](../04-technical-spec.md); calculations are in the [metrics contract](../01-metrics-contract.md). Production event schemas are [separate](event-schemas.md).
 
 ### A.1 Table classes
 
@@ -35,7 +35,7 @@ Four classes have different identity rules: `organisation` does not reference it
 | `source_day_coverage` | PK `(org_id, logical_source, day)`; `day DATE NOT NULL`, `is_complete BOOLEAN NOT NULL` |
 | `seed_manifest` | PK `dataset_id`; `dataset_version TEXT NOT NULL`, `seed BIGINT NOT NULL`, `expected_counts JSONB NOT NULL`, `business_checksum TEXT NOT NULL`, `installed_at TIMESTAMPTZ NOT NULL` |
 
-All timestamps are `TIMESTAMPTZ` in UTC; all money is `BIGINT` USD cents (contract §1.1).
+All timestamps are `TIMESTAMPTZ` in UTC; all money is `BIGINT` USD cents ([Conventions](../01-metrics-contract.md#11-conventions)).
 
 ### A.3 Referenced unique keys, and the foreign keys that need them
 
@@ -75,17 +75,17 @@ Every tenant-safe foreign key, in full:
 | Enumerated values | `CHECK`: `task_type IN ('bugfix','feature','refactor','tests','dependency_update','repo_question','research')`; `terminal_status IN ('completed','failed','cancelled')`; `run_status IN ('running','completed','failed','cancelled')`; `terminal_state IN ('merged','closed_unmerged')`; `failure_reason IN ('agent_gave_up','tests_failed','timeout','internal_error','rate_limited','sandbox_denied')`; `role IN ('ADMIN','VIEWER')` | DB |
 | Task status/time agree | `CHECK ((terminal_status IS NULL) = (terminal_at IS NULL))`, `CHECK (terminal_at IS NULL OR terminal_at >= created_at)` | DB |
 | PR status/time agree | `CHECK ((terminal_state IS NULL) = (terminal_at IS NULL))`, `CHECK (terminal_at IS NULL OR terminal_at >= opened_at)` | DB |
-| One PR per task | `pull_request UNIQUE (org_id, task_id)` — a v1 product rule (`00-research.md` §1.1) | DB |
+| One PR per task | `pull_request UNIQUE (org_id, task_id)` — a v1 product rule ([Entity model](../00-research.md#11-entity-model)) | DB |
 | Run attempts | `run UNIQUE (org_id, task_id, attempt_no)`, `CHECK (attempt_no >= 1)` | DB |
 | Run status/end time | `CHECK ((run_status = 'running') = (ended_at IS NULL))`, `CHECK (ended_at IS NULL OR ended_at >= started_at)` | DB |
 | Failure reason presence | `CHECK ((run_status = 'failed') = (failure_reason IS NOT NULL))` | DB |
 | Budget month is canonical | `CHECK (EXTRACT(DAY FROM period_month) = 1)` — a calendar-month key, never a mid-month date | DB |
 | Budget uniqueness with NULL team | `UNIQUE NULLS NOT DISTINCT (org_id, team_id, period_month)`; the default treats NULLs as distinct, which would accept duplicate organisation budgets | DB |
-| `amount_cents` may be ≤ 0 | deliberately **no** positivity constraint: contract §6.1 treats `budget ≤ 0` as a reportable `invalid_budget_configuration` | DB (deliberate absence) |
+| `amount_cents` may be ≤ 0 | deliberately **no** positivity constraint: [Budget risk](../01-metrics-contract.md#61-budget-risk) treats `budget ≤ 0` as a reportable `invalid_budget_configuration` | DB (deliberate absence) |
 | Usage cost values | `CHECK (cost_cents >= 0)`. Refunds and credits are **not modelled**; introducing negative cost is a scope change, not a data detail | DB |
 | Seat assignment consistency | `CHECK ((user_id IS NULL) = (assigned_at IS NULL))`; partial unique index `(org_id, user_id) WHERE user_id IS NOT NULL` gives one seat per assigned user | DB |
 | Login identity | `username` globally `UNIQUE`, not per organisation; stored already normalised (trimmed, lowercased) so the constraint and the lookup agree. **No plaintext password column exists** | DB |
-| Fixed licence population | each organisation's seat count (§6), all assigned, unchanging across demo history; no seat-history model exists | seed |
+| Fixed licence population | each organisation's seat count ([Demo data](../04-technical-spec.md#6-demo-data)), all assigned, unchanging across demo history; no seat-history model exists | seed |
 | Exactly one run per task | deliberately **not** a constraint — the schema keeps retries representable | seed |
 | PRs only on completed tasks; `opened_at ≥ task.terminal_at`; `target_branch = repository.default_branch` | cross-row invariants spanning tables, which a `CHECK` cannot express | seed, asserted by integration tests |
 
@@ -95,7 +95,7 @@ A `CHECK` constraint sees only its own row. Every rule above that compares two t
 
 Two questions, deliberately stored apart:
 
-- **What interval does this organisation publish?** `dataset_publication` — **one row per organisation**, giving `data_available_from`, `data_through` and `revision`. These are the envelope's values (§5), resolved for the caller's own tenant. Both demo organisations publish the same 180-day interval but keep independent rows, so they can diverge without a schema change. `revision` is copied from the seed manifest's `business_checksum` (§6).
+- **What interval does this organisation publish?** `dataset_publication` — **one row per organisation**, giving `data_available_from`, `data_through` and `revision`. These are the envelope's values ([API contract](../04-technical-spec.md#5-api-contract)), resolved for the caller's own tenant. Both demo organisations publish the same 180-day interval but keep independent rows, so they can diverge without a schema change. `revision` is copied from the seed manifest's `business_checksum` ([Demo data](../04-technical-spec.md#6-demo-data)).
 - **Is a given logical source complete for a given day?** `source_day_coverage`, keyed `(org_id, logical_source, day)`. A window is complete for a source when every day it spans has a row with `is_complete = true`.
 
 Day grain is the smallest representation that answers the required cases, because a whole-dataset boolean cannot say "complete now, incomplete in the baseline". It supports: a covered period with no activity (rows present, `is_complete = true`, no matching business rows → defined zeros); a current period missing a required source (`missing_data`, including counts); an available current period with an unavailable baseline (`no_baseline` for comparisons, `not_evaluated` for rules); a budget month-to-date outside the selected range, evaluated on its own days; and funnel observation continuing to `dataThrough`. At the published interval × 8 logical sources × 2 organisations this is a few thousand rows — metadata, not an ingestion system.
@@ -104,7 +104,7 @@ Day grain is the smallest representation that answers the required cases, becaus
 
 | Situation | Response |
 |---|---|
-| Requested range falls outside the organisation's published interval | **reject the request** (contract §1.5) — no partial answer |
+| Requested range falls outside the organisation's published interval | **reject the request** ([Data coverage](../01-metrics-contract.md#15-data-coverage)) — no partial answer |
 | Range is inside the interval, but a source-day row is missing or incomplete | **the dependent metrics are unavailable**; everything else still renders. This is never a whole-request rejection |
 
 **Absent source-day metadata inside the published interval means not covered** for that source — unknown, never "no activity". Coverage is never derived from the earliest or latest event, because empty days are valid data.
@@ -129,10 +129,10 @@ Baseline windows and the budget month are evaluated **independently** against th
 
 Completion rate and the funnel are listed apart on purpose: they are not one dependency. The completion rate needs only tasks, and so do the funnel's task-only stages — but the two PR stages need pull-request and repository data as well, and become **unavailable** without it rather than dropping to zero.
 
-The publication and source-day tables are implemented in migration V2. Population and coverage-query behaviour is still part of the planned analytics work.
+The publication and source-day tables are implemented in migration V2. The dashboard API implements the population queries and source-completeness checks.
 
 ### A.6 Indexing strategy
 
-Index the timestamp each metric filters on (contract §2), with `org_id` leading so tenant scope is the first predicate, plus the foreign keys behind the parent joins in §4. Partial indexes suit the merged-PR and terminal-PR predicates, and the cohort and completion queries split naturally by `created_at` versus `terminal_at`. **These are starting points, not measured results** — no claim is made that any index makes a query faster or index-only until `EXPLAIN (ANALYZE, BUFFERS)` has been run against the demo dataset (§6).
+Index the timestamp each metric filters on ([Lifecycle and timestamp basis](../01-metrics-contract.md#2-lifecycle-and-timestamp-basis)), with `org_id` leading so tenant scope is the first predicate, plus the foreign keys behind the parent joins in [Request and calculation flow](../04-technical-spec.md#4-request-and-calculation-flow). Partial indexes suit the merged-PR and terminal-PR predicates, and the cohort and completion queries split naturally by `created_at` versus `terminal_at`. **These are starting points, not measured results** — no claim is made that any index makes a query faster or index-only until `EXPLAIN (ANALYZE, BUFFERS)` has been run against the demo dataset ([Demo data](../04-technical-spec.md#6-demo-data)).
 
 Correctness-enforcing uniqueness is not a tuning choice and is listed above: `(org_id, source, source_entity_id)`, the parent keys in A.3, `pull_request (org_id, task_id)`, `run (org_id, task_id, attempt_no)`, the budget `NULLS NOT DISTINCT` key, the partial seat index, and `username`.

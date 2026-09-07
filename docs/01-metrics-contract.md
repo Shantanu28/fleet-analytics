@@ -1,7 +1,7 @@
 # 01 — Metrics contract
 
 > **Purpose:** the normative definitions for every number the P0 dashboard displays, precise enough to implement and to test.
-> Scope is frozen in `00-research.md` §7 and is not reopened here. This document decides *precisely how*; it chooses no stack, storage, route or authentication mechanism.
+> Scope is frozen in [Prototype P0 — frozen](00-research.md#7-prototype-p0--frozen) and is not reopened here. This document decides *precisely how*; it chooses no stack, storage, route or authentication mechanism.
 
 ## 1. Scope, conventions and demo limitations
 
@@ -12,12 +12,12 @@
 | Time zone | UTC throughout. |
 | Intervals | Internal intervals are half-open `[startInclusive, endExclusive)`. UI dates are inclusive; the UI's last selected day `D` maps to `endExclusive = D + 1 day` at `00:00:00Z`. |
 | `dataThrough` | A fixed UTC-midnight instant, **exclusive**. The demo reports complete UTC days only. Every selected period must satisfy `endExclusive ≤ dataThrough`. An event **at** `dataThrough` is outside the reported data: events are included only when `occurred < dataThrough`. |
-| Coverage | The dataset declares `[dataAvailableFrom, dataThrough)` (§1.5). Absence of records **inside** coverage is zero activity; absence **outside** coverage is unknown and is never read as zero. |
+| Coverage | The dataset declares `[dataAvailableFrom, dataThrough)` ([Data coverage](#15-data-coverage)). Absence of records **inside** coverage is zero activity; absence **outside** coverage is unknown and is never read as zero. |
 | Previous period | `[start − (end − start), start)` — the immediately preceding block of equal length. |
 | Money | Integer **USD cents**. No floating-point accumulation, no intermediate rounding. |
-| Rounding | All arithmetic on unrounded values; rounding happens only at display (§8.6). |
+| Rounding | All arithmetic on unrounded values; rounding happens only at display ([Display formatting](#86-display-formatting)). |
 | Ratios | Organisation and any aggregate ratio is computed from **pooled counts**, never as a mean of member percentages. |
-| Threshold comparison | Rule triggers are evaluated **exactly**, not on binary floating-point percentage points. Compare with integer cross-multiplication on the underlying counts. `29/50 − 8/16` is exactly `8.0` pp, but in IEEE-754 doubles it evaluates to `7.999999999999993` and a naive `>= 8` test **fails to trigger**. Test M2 (§8.5) exists to catch this. |
+| Threshold comparison | Rule triggers are evaluated **exactly**, not on binary floating-point percentage points. Compare with integer cross-multiplication on the underlying counts. `29/50 − 8/16` is exactly `8.0` pp, but in IEEE-754 doubles it evaluates to `7.999999999999993` and a naive `>= 8` test **fails to trigger**. Test M2 ([Budget, and boundary examples the fixture cannot reach](#85-budget-and-boundary-examples-the-fixture-cannot-reach)) exists to catch this. |
 | Zero denominator | Returns `null`. Never `0`, never `Infinity`. |
 | Rate deltas | Percentage points. Valid even when the previous rate is `0`. |
 | Relative deltas | Counts and money only; `null` when the previous value is `0` or either value is `null`. |
@@ -27,21 +27,23 @@
 Every metric returns a value state and, independently, a comparison state. A raw value may be present while its comparison is unavailable.
 
 **Value states**
+
 - `ok` — computed.
 - `zero_outcome` — computed and equal to `0` because the numerator is `0` while the denominator is `> 0`. A real result, not an absence.
 - `no_denominator` — denominator is `0`; value is `null`. Copy names the specific reason per metric.
-- `unavailable_for_scope` — not defined under the active filters (§5.3).
+- `unavailable_for_scope` — not defined under the active filters ([Filter exceptions (must be visible on screen)](#53-filter-exceptions-must-be-visible-on-screen)).
 - `missing_data` — a required source is absent. Value is `null` and **is never coerced to `0`**.
 
 A complete dataset containing no matching records yields `0` for counts and spend — that is `ok`, not `missing_data`.
 
 **Comparison states** (the same set the precedence list below resolves over)
+
 - `ok` — delta computed.
 - `unavailable_for_scope` — the comparison is not defined under the active filters.
 - `missing_data` — a required source for the current period is absent, or that period is not fully covered.
 - `no_baseline` — **the baseline window is not fully covered, or a required baseline source is missing.** Nothing else produces this state.
 - `no_denominator` — the current or baseline value is mathematically undefined (a zero denominator).
-- `insufficient_sample` — one or both populations fall below the metric's gate (§5.4).
+- `insufficient_sample` — one or both populations fall below the metric's gate ([Benchmark and sample gates](#54-benchmark-and-sample-gates)).
 - `undefined_relative` — a relative change was requested and the previous value is `0` or `null`.
 
 **Comparison-reason precedence.** When more than one reason applies, report the first that matches:
@@ -50,7 +52,7 @@ A complete dataset containing no matching records yields `0` for counts and spen
 2. `missing_data` — a required source for the **current** period is absent, or that period is not fully covered.
 3. `no_baseline` — the baseline window is not fully covered, or a required baseline source is missing.
 4. `no_denominator` — the current or baseline value is mathematically undefined.
-5. `insufficient_sample` — a §5.4 gate is unmet by one or both populations.
+5. `insufficient_sample` — a [Benchmark and sample gates](#54-benchmark-and-sample-gates) gate is unmet by one or both populations.
 6. `undefined_relative` — a relative change was requested and the previous value is `0` or `null`.
 7. `ok` — computed.
 
@@ -71,23 +73,23 @@ A complete dataset containing no matching records yields `0` for counts and spen
 These are properties of the prototype's data, not claims about production.
 
 1. Exactly **one run per task**, and **at most one PR per task**. Task cost is defined as the sum over the task's runs so the formula is production-shaped; in the demo that sum has one term.
-2. **Task status follows its sole run.** This contract does **not** define production task status. Production lifecycle and retry orchestration need an explicit state machine, specified in `03-architecture.md`.
+2. **Task status follows its sole run.** This contract does **not** define production task status. Production lifecycle and retry orchestration need an explicit state machine, specified in [architecture](03-architecture.md).
 3. `created_at == started_at`; **no queue is modelled**.
 4. Only **completed** tasks may have a PR. `pr.opened_at ≥ task.terminal_at`, and `pr.merged_at ≥ pr.opened_at`.
 5. **Reopened PRs are excluded.** A PR has at most one terminal transition.
 6. **Licensed-seat population and capacity are fixed** across the whole demo history. Historical seat changes are a production concern.
-7. **No duplicate source records.** Fixtures assert unique IDs and valid relationships; this is a fixture property and is **not** a claim that production ingestion is idempotent. Production event deduplication belongs to `03-architecture.md`.
+7. **No duplicate source records.** Fixtures assert unique IDs and valid relationships; this is a fixture property and is **not** a claim that production ingestion is idempotent. Production event deduplication belongs to [architecture](03-architecture.md).
 8. Only `dataThrough`-complete UTC days are reported; no partial-day results exist.
-9. **Every modelled PR targets its repository's designated default branch.** This is a fixture invariant and an eligibility condition (§1.4). Historical branch renaming is **outside the demo model** and is not simulated.
-10. The dataset declares a coverage interval and contains no records outside it (§1.5).
+9. **Every modelled PR targets its repository's designated default branch.** This is a fixture invariant and an eligibility condition ([Eligibility](#14-eligibility)). Historical branch renaming is **outside the demo model** and is not simulated.
+10. The dataset declares a coverage interval and contains no records outside it ([Data coverage](#15-data-coverage)).
 
 ### 1.4 Eligibility
 
 **Eligible code-change task** — a task whose type is one of `bugfix`, `feature`, `refactor`, `tests`, `dependency_update`.
 
-**Non-code tasks** (`repo_question`, `research`) are excluded from outcome metrics, the funnel and the cost-per-merged-PR numerator. They **are** included in total spend, the spend trend, active seats, and **network-policy friction** (§6.4) — friction is an operational rule about sandbox policy, not a code-outcome metric (`00-research.md` §3).
+**Non-code tasks** (`repo_question`, `research`) are excluded from outcome metrics, the funnel and the cost-per-merged-PR numerator. They **are** included in total spend, the spend trend, active seats, and **network-policy friction** ([Network-policy friction](#64-network-policy-friction)) — friction is an operational rule about sandbox policy, not a code-outcome metric ([Measurement scope and boundaries](00-research.md#3-measurement-scope-and-boundaries)).
 
-**Eligible PR** — a PR that targets its repository's **designated default branch**. Every PR metric in §3 and §4 carries this condition, because "merged" means merged to the default branch (`00-research.md` §4). PRs targeting any other branch are counted by no PR metric. In the demo all PRs qualify, by fixture invariant (§1.3.9).
+**Eligible PR** — a PR that targets its repository's **designated default branch**. Every PR metric in [The five KPI cards](#3-the-five-kpi-cards) and [Cohort funnel and residuals](#4-cohort-funnel-and-residuals) carries this condition, because "merged" means merged to the default branch ([The one question, and the four underneath it](00-research.md#4-the-one-question-and-the-four-underneath-it)). PRs targeting any other branch are counted by no PR metric. In the demo all PRs qualify, by fixture invariant ([Demo limitations (explicit)](#13-demo-limitations-explicit)).
 
 ### 1.5 Data coverage
 
@@ -103,7 +105,7 @@ The dataset declares a coverage interval `[dataAvailableFrom, dataThrough)`.
 
 **Demo lifecycle.** `created(=started) → { completed | failed | cancelled | in_progress }`. Only `completed` continues: `→ pr_opened → { merged | closed_unmerged | open }`.
 
-**Completed** means the agent finished its assigned execution successfully. It does **not** imply human acceptance, review, or that required checks passed (`00-research.md` §3, §4).
+**Completed** means the agent finished its assigned execution successfully. It does **not** imply human acceptance, review, or that required checks passed ([Measurement scope and boundaries](00-research.md#3-measurement-scope-and-boundaries) and [The one question, and the four underneath it](00-research.md#4-the-one-question-and-the-four-underneath-it)).
 
 | Metric | Timestamp that places it in a period |
 |---|---|
@@ -112,23 +114,23 @@ The dataset declares a coverage interval `[dataAvailableFrom, dataThrough)`.
 | Task completion rate | `task.terminal_at` |
 | Spend (all spend metrics, budgets) | `usage_record.metered_at` |
 | Active seats | `task.created_at` |
-| Funnel cohort membership | `task.created_at`; stages then observed for events occurring `< dataThrough` (§4) |
+| Funnel cohort membership | `task.created_at`; stages then observed for events occurring `< dataThrough` ([Cohort funnel and residuals](#4-cohort-funnel-and-residuals)) |
 | Network-policy friction | `denial_event.occurred_at` |
 
 A usage record is recognised **whole** at `metered_at` and is never prorated across days or periods. A record may therefore fall in a different period from its task's terminal timestamp; that is intended and is what makes period spend reconcile to the metered ledger.
 
 ## 3. The five KPI cards
 
-Each card shows a value, a previous-period comparison, and a short definition. No sub-lines (`00-research.md` §7).
+Each card shows a value, a previous-period comparison, and a short definition. No sub-lines ([Prototype P0 — frozen](00-research.md#7-prototype-p0--frozen)).
 
 ### 3.1 Merged agent PRs
 
 - **Population:** PRs of eligible code-change tasks with `merged_at ∈ [start, end)`.
 - **Value:** `count(distinct pr_id)`.
 - **Exclusions:** non-code tasks; PRs merged outside the window regardless of when their task ran.
-- **Nulls:** inside coverage, an empty match set is `0` (`ok`). If the PR source is missing for a covered period, the card is `missing_data` with a `null` value — **never** `0` (§1.5). This overrides any reading of this card as null-free.
+- **Nulls:** inside coverage, an empty match set is `0` (`ok`). If the PR source is missing for a covered period, the card is `missing_data` with a `null` value — **never** `0` ([Data coverage](#15-data-coverage)). This overrides any reading of this card as null-free.
 - **Comparison:** absolute delta whenever **both** period counts are defined; relative delta `null` when the previous count is `0` (`undefined_relative`). No sample gate.
-- **Limitation:** a count of merges, an acceptance proxy only (`00-research.md` §3).
+- **Limitation:** a count of merges, an acceptance proxy only ([Measurement scope and boundaries](00-research.md#3-measurement-scope-and-boundaries)).
 
 ### 3.2 Terminal PR merge rate
 
@@ -136,13 +138,13 @@ Each card shows a value, a previous-period comparison, and a short definition. N
 - **Value:** `merged ÷ (merged + closed_unmerged)`.
 - **Exclusions:** open PRs; non-code tasks.
 - **Nulls:** denominator `0` → `no_denominator`, copy "no PRs reached a terminal state in this period".
-- **Comparison:** percentage points. Gate: **≥ 15 terminal PRs in each period** (§5.4).
+- **Comparison:** percentage points. Gate: **≥ 15 terminal PRs in each period** ([Benchmark and sample gates](#54-benchmark-and-sample-gates)).
 - **Limitation:** merges may be automated; this is not evidence of human review.
 
 ### 3.3 Blended cost per merged PR
 
 - **Numerator:** metered cost of **eligible code-change tasks** with `metered_at ∈ [start, end)`, **regardless of task outcome** — completed, failed, cancelled and in-progress all count. Cost of failure is part of unit cost.
-- **Denominator:** merged agent PRs for the same period (§3.1).
+- **Denominator:** merged agent PRs for the same period ([Merged agent PRs](#31-merged-agent-prs)).
 - **Value:** `numerator_cents ÷ denominator`.
 - **Nulls:** denominator `0` → `no_denominator`, copy **"no merged PRs in this period"**. This is *not* "no activity": positive spend with zero merged PRs is a real and important state and must stay visible alongside the spend figure.
 - **Comparison:** absolute and relative. Gate: **≥ 15 merged PRs in each period**.
@@ -152,7 +154,7 @@ Each card shows a value, a previous-period comparison, and a short definition. N
 
 - **Population:** eligible code-change tasks with `terminal_at ∈ [start, end)` and status `completed` or `failed`.
 - **Value:** `completed ÷ (completed + failed)`.
-- **Exclusions:** cancelled tasks (a human decision, not a platform failure) and in-progress tasks (no outcome yet). Cancelled tasks remain visible as funnel side exits (§4).
+- **Exclusions:** cancelled tasks (a human decision, not a platform failure) and in-progress tasks (no outcome yet). Cancelled tasks remain visible as funnel side exits ([Cohort funnel and residuals](#4-cohort-funnel-and-residuals)).
 - **Nulls:** denominator `0` → `no_denominator`. Numerator `0` with denominator `> 0` → value `0`, state `zero_outcome` (e.g. `0/10 = 0.0%`).
 - **Comparison:** percentage points. Gate: **≥ 20 completed + failed tasks in each period**.
 - **Limitation:** measures agent execution, not acceptance.
@@ -164,13 +166,13 @@ Each card shows a value, a previous-period comparison, and a short definition. N
 - **Value:** active count, with utilisation `active ÷ licensed` as the derived ratio.
 - **Filtered scope:** under a **team or repository filter**, show the filtered active count and set utilisation to `unavailable_for_scope`, with visible copy that seat allocation is not defined for that scope. Team and repository seat allocations are never fabricated.
 - **Comparison:** active count compared between periods **under the same filters**; absolute delta whenever both counts are defined, relative `null` when previous is `0`. Utilisation compared in percentage points only when both periods have a defined ratio. No sample gate.
-- **Limitation:** seat capacity is fixed across demo history (§1.3.6).
+- **Limitation:** seat capacity is fixed across demo history ([Demo limitations (explicit)](#13-demo-limitations-explicit)).
 
 ## 4. Cohort funnel and residuals
 
 - **Cohort:** eligible code-change tasks with `created_at ∈ [start, end)`.
 - **Observation:** each stage counts **distinct tasks in that cohort** whose stage event occurred at `< dataThrough` — including after `end`.
-- **Stages:** `started` → `completed` → `pr_opened` → `pr_merged`. Nesting is guaranteed by the lifecycle (§2): `merged ≤ pr_opened ≤ completed ≤ started`.
+- **Stages:** `started` → `completed` → `pr_opened` → `pr_merged`. Nesting is guaranteed by the lifecycle ([Lifecycle and timestamp basis](#2-lifecycle-and-timestamp-basis)): `merged ≤ pr_opened ≤ completed ≤ started`.
 - **Side exits** (terminal, mutually exclusive with `completed`): `failed`, `cancelled`.
 - **Residual** (non-terminal): `in_progress`. Shown as a residual, **never as a side exit**.
 - **Identity:** `completed + failed + cancelled + in_progress = started`.
@@ -178,7 +180,7 @@ Each card shows a value, a previous-period comparison, and a short definition. N
 - **Maturity:** recent cohorts have had less time to reach merge. This is explained in copy; **no numerical maturity threshold is defined**.
 - **No previous-period funnel comparison** is computed for P0.
 
-**The funnel and the KPI cards do not reconcile, by design.** A PR merged after `end` but before `dataThrough` counts in the cohort's merged stage and **not** in that period's merged-PR KPI. Conversely a PR merged inside the period whose task was created earlier counts in the KPI and **not** in the cohort. Worked in §8.3.
+**The funnel and the KPI cards do not reconcile, by design.** A PR merged after `end` but before `dataThrough` counts in the cohort's merged stage and **not** in that period's merged-PR KPI. Conversely a PR merged inside the period whose task was created earlier counts in the KPI and **not** in the cohort. Worked in [Cohort funnel, period `P`](#83-cohort-funnel-period-p).
 
 ## 5. Trends, filters, benchmarks and gates
 
@@ -186,13 +188,13 @@ Each card shows a value, a previous-period comparison, and a short definition. N
 
 Two series, bucketed by complete UTC day over the selected range:
 - **Merged agent PRs over time** — bucket by `pr.merged_at`.
-- **Agent spend over time** — bucket by `usage_record.metered_at`, **all task types** (`00-research.md` §3).
+- **Agent spend over time** — bucket by `usage_record.metered_at`, **all task types** ([Measurement scope and boundaries](00-research.md#3-measurement-scope-and-boundaries)).
 
 Days with no matching records are `0`, not gaps.
 
 ### 5.2 Global filters
 
-Date range, team and repository. A task carries `team_id` and `repo_id` captured at creation; PRs and usage records inherit attribution through their task (§7).
+Date range, team and repository. A task carries `team_id` and `repo_id` captured at creation; PRs and usage records inherit attribution through their task ([Fixture](#7-fixture)).
 
 ### 5.3 Filter exceptions (must be visible on screen)
 
@@ -200,13 +202,13 @@ Date range, team and repository. A task carries `team_id` and `repo_id` captured
 |---|---|---|
 | Seat utilisation | `unavailable_for_scope` | `unavailable_for_scope` |
 | Budget risk | evaluated against that team's budget | `unavailable_for_scope` — no repository allocation exists and none is invented |
-| Budget period | always calendar month-to-date, independent of the selected date range (§6.1) | same |
+| Budget period | always calendar month-to-date, independent of the selected date range ([Budget risk](#61-budget-risk)) | same |
 
 ### 5.4 Benchmark and sample gates
 
 **Benchmark scope.** The organisational benchmark uses the **same date range and the same explicit repository filter**, and **ignores the team filter**. The selected team's own contribution **is included**: this is an *inclusive organisational benchmark*, not "everyone else". Selecting a repository **row** in the table is not a global repository filter and does not change the benchmark.
 
-**Gates** (product heuristics, not tests of statistical significance — `00-research.md` §3):
+**Gates** (product heuristics, not tests of statistical significance — [Measurement scope and boundaries](00-research.md#3-measurement-scope-and-boundaries)):
 
 | Comparison | Gate |
 |---|---|
@@ -231,7 +233,7 @@ Four rule types. Every finding is computed. Severity is `HIGH` or `MEDIUM`; only
 
 For the three non-budget rules: apply the explicit **team and repository filters together** to build the current population, and apply the **identical filters** to the baseline population. Then, for each evaluated team or repository scope, **intersect that scope with the global filters**; a scope whose intersection is empty produces no finding. Findings from scopes unrelated to the active filters are never reported.
 
-Budget scoping follows §6.1. Only the **benchmark** calculation (§5.4) deliberately ignores the team filter — nothing in §6 does.
+Budget scoping follows [Budget risk](#61-budget-risk). Only the **benchmark** calculation ([Benchmark and sample gates](#54-benchmark-and-sample-gates)) deliberately ignores the team filter — nothing in [Attention rules](#6-attention-rules) does.
 
 ### 6.1 Budget risk
 
@@ -260,7 +262,7 @@ Budget scoping follows §6.1. Only the **benchmark** calculation (§5.4) deliber
 ### 6.3 Terminal merge-rate decline
 
 - **Current window:** the selected range. **Baseline:** the immediately preceding equal-length period.
-- **Rate:** §3.2, by terminal transition timestamp.
+- **Rate:** [Terminal PR merge rate](#32-terminal-pr-merge-rate), by terminal transition timestamp.
 - **Sample:** each window independently needs ≥ 15 terminal PRs. Otherwise `not_evaluated`.
 - **Trigger:** `baseline_rate − current_rate ≥ 8` percentage points.
 - **Scopes:** each team and each repository.
@@ -269,14 +271,14 @@ Budget scoping follows §6.1. Only the **benchmark** calculation (§5.4) deliber
 ### 6.4 Network-policy friction
 
 - **Window:** the selected range, anchored on the denial event's **`occurred_at`**, using `[start, end)`. An event at exactly `end` is excluded.
-- **Task scope:** **all task types**, code-change and non-code (§1.4). Friction is an operational rule about sandbox policy, not a code-outcome metric.
-- **Attribution:** every denial event belongs to a task; that task supplies team, repository and owner (§7).
+- **Task scope:** **all task types**, code-change and non-code ([Eligibility](#14-eligibility)). Friction is an operational rule about sandbox policy, not a code-outcome metric.
+- **Attribution:** every denial event belongs to a task; that task supplies team, repository and owner ([Fixture](#7-fixture)).
 - **Counting:** per normalised domain, count **distinct affected `task_id`** and **distinct task-owner `user_id`**. Repeated denial events from one task inflate neither count.
 - **Trigger:** `distinct_tasks ≥ 5` **and** `distinct_users ≥ 3`. Both required.
 - **Normalisation:** lowercase, trailing dot stripped. Distinct normalised domains are distinct findings and are never collapsed.
-- **Scopes:** evaluated per team and per repository from task attribution, after the §6.0 filter intersection.
+- **Scopes:** evaluated per team and per repository from task attribution, after the [Filter application](#60-filter-application) filter intersection.
 - **Severity:** `MEDIUM`. **Magnitude:** distinct affected task count.
-- **Privacy:** the domain is carried in a field marked admin-only (`00-research.md` §9). Non-admin rendering shows a redacted evidence string that keeps the counts. **This contract does not define who is an admin or how the restriction is enforced** — access behaviour is `02-requirements.md`, the trust boundary `03-architecture.md`, enforcement `04-technical-spec.md`.
+- **Privacy:** the domain is carried in a field marked admin-only ([Privacy principle](00-research.md#9-privacy-principle)). Non-admin rendering shows a redacted evidence string that keeps the counts. **This contract does not define who is an admin or how the restriction is enforced** — access behaviour is [requirements](02-requirements.md), the trust boundary [architecture](03-architecture.md), enforcement [technical guide](04-technical-spec.md).
 
 ### 6.5 Identity, deduplication and selection
 
@@ -287,7 +289,7 @@ Budget findings use **their own month** as the period key, never the dashboard d
 
 1. Severity — `HIGH` before `MEDIUM`.
 2. Rule order — budget risk, task failure spike, terminal merge-rate decline, network-policy friction.
-3. Within-rule magnitude, descending (§6.1–§6.4).
+3. Within-rule magnitude, descending ([Budget risk](#61-budget-risk) through [Network-policy friction](#64-network-policy-friction)).
 4. Stable identifier ascending — `scope_type`, then `scope_id`, then `normalised_domain` where applicable.
 5. **Full finding identity string** ascending, as the final tie-breaker.
 
@@ -295,12 +297,12 @@ Step 5 makes the order **total** even when two entity types share an id — a te
 
 ## 7. Fixture
 
-**Coverage** `[dataAvailableFrom = 2025-12-01T00:00:00Z, dataThrough = 2026-02-04T00:00:00Z)` — chosen to fully cover the selected period, the previous period, **and** the 28-day failure baseline `[2025-12-19T00:00:00Z, 2026-01-16T00:00:00Z)`. Last complete day: 3 Feb 2026. All PRs target their repository's default branch (§1.3.9).
+**Coverage** `[dataAvailableFrom = 2025-12-01T00:00:00Z, dataThrough = 2026-02-04T00:00:00Z)` — chosen to fully cover the selected period, the previous period, **and** the 28-day failure baseline `[2025-12-19T00:00:00Z, 2026-01-16T00:00:00Z)`. Last complete day: 3 Feb 2026. All PRs target their repository's default branch ([Demo limitations (explicit)](#13-demo-limitations-explicit)).
 **Selected period** `P = [2026-01-16T00:00:00Z, 2026-02-01T00:00:00Z)` — 16 days.
 **Previous period** `P₋₁ = [2025-12-31T00:00:00Z, 2026-01-16T00:00:00Z)` — 16 days.
 
 **Seats:** licensed capacity **6** (`u1…u6`), fixed. **Teams:** `T-PLAT` = u1, u2, u5; `T-PAY` = u3, u4, u6. **Repos:** `R-API`, `R-WEB`.
-**Budgets:** organisation, February 2026 = **200000 cents ($2,000.00)**. No team budgets are configured in the fixture, so team budget scopes are `not_evaluated` with reason "no budget configured" (§6.1).
+**Budgets:** organisation, February 2026 = **200000 cents ($2,000.00)**. No team budgets are configured in the fixture, so team budget scopes are `not_evaluated` with reason "no budget configured" ([Budget risk](#61-budget-risk)).
 
 ### 7.1 Tasks (10; one run each)
 
@@ -346,7 +348,7 @@ Step 5 makes the order **total** even when two entity types share an id — a te
 
 ## 8. Worked calculations
 
-Each result is derived independently from §7 by applying the timestamp basis in §2.
+Each result is derived independently from [Fixture](#7-fixture) by applying the timestamp basis in [Lifecycle and timestamp basis](#2-lifecycle-and-timestamp-basis).
 
 ### 8.1 KPI cards, period `P`
 
@@ -392,7 +394,7 @@ Cohort = eligible code-change tasks with `created_at ∈ P` = **T5, T6, T7, T8**
 Identity: `1 + 1 + 1 + 1 = 4` ✓. Nesting: `1 ≤ 1 ≤ 1 ≤ 4` ✓.
 Label: *"Tasks started in the selected period; outcomes observed through 3 February 2026."*
 
-**Non-reconciliation, demonstrated.** Funnel merged = 1 (**PR-4**, from T7). KPI merged = 1 (**PR-3**, from T4, created before `P`). Equal counts, **disjoint sets**. Neither is wrong; they answer different questions (§4).
+**Non-reconciliation, demonstrated.** Funnel merged = 1 (**PR-4**, from T7). KPI merged = 1 (**PR-3**, from T4, created before `P`). Equal counts, **disjoint sets**. Neither is wrong; they answer different questions ([Cohort funnel and residuals](#4-cohort-funnel-and-residuals)).
 
 ### 8.4 Comparison table, period `P`
 
@@ -412,7 +414,7 @@ Repository view:
 | R-WEB | 100.0% (1/1) | 100.0% (1/1) | **$18.00** (1800¢/1) |
 | **Org benchmark** | **50.0%** (1/2) | **100.0%** (1/1) | **$23.00** (2300¢/1) |
 
-**Row-vs-benchmark comparison states**, resolved by the §1.2 precedence — not all of them are `insufficient_sample`:
+**Row-vs-benchmark comparison states**, resolved by the [Result envelope](#12-result-envelope) precedence — not all of them are `insufficient_sample`:
 
 | State | Fixture examples | Why |
 |---|---|---|
@@ -424,7 +426,7 @@ Every suppressed comparison carries its own explanation; none is drawn as flat o
 **Three things this table proves.**
 1. **Pooling, shown separately.** Team view: `(0 + 1) / (0 + 2) = 50.0%`. Repository view: `(0 + 1) / (1 + 1) = 50.0%`. Two different partitions, one pooled org figure. A mean of member percentages is undefined here — T-PLAT's completion is `null` — so pooled counts are mandatory, not merely preferred.
 2. **Zero outcomes ≠ no activity.** R-API is `0.0%` from `0/1`; T-PLAT completion is `null` from `0/0`. Different states, different copy.
-3. **Positive spend, no merged PRs.** T-PAY spent **$23.00** and merged nothing: cost per merged PR is `null` with copy "no merged PRs in this period" — **never** "no activity", and the spend stays on screen. T-PLAT's `$0.00` is the mirror image and is a true consequence of the flow-metric definition (§3.3): its merged PR-3 was produced by spend recognised in `P₋₁`.
+3. **Positive spend, no merged PRs.** T-PAY spent **$23.00** and merged nothing: cost per merged PR is `null` with copy "no merged PRs in this period" — **never** "no activity", and the spend stays on screen. T-PLAT's `$0.00` is the mirror image and is a true consequence of the flow-metric definition ([Blended cost per merged PR](#33-blended-cost-per-merged-pr)): its merged PR-3 was produced by spend recognised in `P₋₁`.
 
 ### 8.5 Budget, and boundary examples the fixture cannot reach
 
@@ -443,7 +445,7 @@ Every suppressed comparison carries its own explanation; none is drawn as flat o
 | F2 | Failure spike, near miss | baseline 40 terminal / 17 failed = 42.5% | rise **7.5 pp** → no finding |
 | F3 | Failure spike, small baseline | baseline 19 terminal | `not_evaluated` — **not** reported healthy |
 | M1 | Merge decline | current 16 terminal / 8 merged = 50.0%; previous 20 terminal / 12 merged = 60.0% | decline **10.0 pp ≥ 8** → `MEDIUM` |
-| M2 | Merge decline, exact threshold | previous 50 terminal / 29 merged = 58.0%; current 16 terminal / 8 merged = 50.0% | decline **exactly 8.0 pp** → triggers (`≥ 8`). Float arithmetic yields `7.999999999999993` and wrongly does not trigger — see §1.1 *Threshold comparison* |
+| M2 | Merge decline, exact threshold | previous 50 terminal / 29 merged = 58.0%; current 16 terminal / 8 merged = 50.0% | decline **exactly 8.0 pp** → triggers (`≥ 8`). Float arithmetic yields `7.999999999999993` and wrongly does not trigger — see [Conventions](#11-conventions) *Threshold comparison* |
 | N1 | Network friction | `internal-registry.corp` → 6 tasks, 4 users | ≥5 and ≥3 → `MEDIUM`, magnitude 6 |
 | N2 | Network friction, user shortfall | same domain → 6 tasks, 2 users | no finding |
 | N3 | Distinct domains | `a.corp` 5 tasks/3 users; `b.corp` 5 tasks/3 users | **two** findings, never collapsed |
@@ -479,14 +481,14 @@ Every suppressed comparison carries its own explanation; none is drawn as flat o
 **Coverage** — these are four distinct scenarios with four distinct outcomes, and no scenario carries two of them:
 1. *Covered period, no matching records* → `0`, state `ok`.
 2. *Selected period not fully covered* → the request is **rejected**; no partial number is returned.
-3. *Covered period, required source missing* → `missing_data` with a `null` value, **including counts** (§3.1); unrelated metrics stay available.
+3. *Covered period, required source missing* → `missing_data` with a `null` value, **including counts** ([Merged agent PRs](#31-merged-agent-prs)); unrelated metrics stay available.
 4. *Baseline window not fully covered, or its required source missing* → `no_baseline` for comparisons and `not_evaluated` for rules, each with a reason; neither renders as healthy or flat.
 
-Also: a **covered baseline with zero records** is valid, and resolves per the §1.2 table — count `0` → `undefined_relative` for relative change; rate denominator `0` → `no_denominator`; rate `0%` → valid pp delta when gates qualify. Comparison-reason precedence returns the first matching reason (§1.2).
+Also: a **covered baseline with zero records** is valid, and resolves per the [Result envelope](#12-result-envelope) table — count `0` → `undefined_relative` for relative change; rate denominator `0` → `no_denominator`; rate `0%` → valid pp delta when gates qualify. Comparison-reason precedence returns the first matching reason ([Result envelope](#12-result-envelope)).
 
 **Deltas** — rate delta valid from a zero previous rate (`0% → 20% = +20.0 pp`) when both samples qualify; a complete zero-count baseline is distinguished from missing history; count relative delta `10 → 0 = −100%`; `0 → 10` relative = `null` while the absolute delta is `+10`; relative delta `null` when either side is `null`.
 
-**Filters** — team and repository filters change the population but not the timestamp basis; **rule populations and their baselines receive the identical filter intersection** (§6.0), and a scope disjoint from the filters produces no finding; seat utilisation `unavailable_for_scope` under both; budget `unavailable_for_scope` under a repository filter; budget month unchanged by the dashboard date range; benchmark ignores the team filter, honours the repository filter, and includes the selected team; a table row selection does not alter the benchmark.
+**Filters** — team and repository filters change the population but not the timestamp basis; **rule populations and their baselines receive the identical filter intersection** ([Filter application](#60-filter-application)), and a scope disjoint from the filters produces no finding; seat utilisation `unavailable_for_scope` under both; budget `unavailable_for_scope` under a repository filter; budget month unchanged by the dashboard date range; benchmark ignores the team filter, honours the repository filter, and includes the selected team; a table row selection does not alter the benchmark.
 
 **Pooled ratios** — org completion identical in the team and repository views (50.0%); pooled ≠ mean of member rates; a `null` member row does not poison the pooled result.
 
@@ -494,38 +496,38 @@ Also: a **covered baseline with zero records** is valid, and resolves per the §
 
 **Attention rules** — each trigger at, just below and just above threshold (F1–F3, M1–M2, N1–N7, B1–B8); non-overlapping failure baseline; `not_evaluated` never renders as healthy; a repository finding is not suppressed when its team also fires; distinct domains produce distinct findings; **repeated denials from one task inflate neither count** (N4); identical identity deduplicates; budget finding carries its own month; **no budget** and **zero/negative budget** are distinct non-findings (B6, B7); **overrun of exactly 20% is `MEDIUM`, above 20% is `HIGH`** (B8, B2); budget `unavailable_for_scope` under a repository filter even with a team filter present; ranking is stable across runs, total under shared ids, and caps at three (S1).
 
-**Determinism** — the fixture with a fixed `dataThrough` produces byte-identical results across runs; §8.1, §8.3 and §8.4 values are asserted exactly.
+**Determinism** — the fixture with a fixed `dataThrough` produces byte-identical results across runs; [KPI cards, period `P`](#81-kpi-cards-period-p) and [Cohort funnel, period `P`](#83-cohort-funnel-period-p) and [Comparison table, period `P`](#84-comparison-table-period-p) values are asserted exactly.
 
 ## 10. Approved decisions, limitations, and open questions
 
 ### 10.1 Approved decisions — closed
 
-- Sample gates apply to KPI rate and cost deltas as well as to table comparisons (§5.4).
-- The budget month is the calendar month containing `dataThrough − 1 day`, labelled explicitly wherever a budget figure or finding appears (§6.1).
-- `$0.00` cost per merged PR is a valid result under the flow definition (§3.3, §8.4).
+- Sample gates apply to KPI rate and cost deltas as well as to table comparisons ([Benchmark and sample gates](#54-benchmark-and-sample-gates)).
+- The budget month is the calendar month containing `dataThrough − 1 day`, labelled explicitly wherever a budget figure or finding appears ([Budget risk](#61-budget-risk)).
+- `$0.00` cost per merged PR is a valid result under the flow definition ([Blended cost per merged PR](#33-blended-cost-per-merged-pr) and [Comparison table, period `P`](#84-comparison-table-period-p)).
 - The fixture stays small; larger populations come from the demo generator.
-- Threshold comparisons are exact, never floating-point percentage points (§1.1).
+- Threshold comparisons are exact, never floating-point percentage points ([Conventions](#11-conventions)).
 
 ### 10.2 Limitations of this contract and its demo
 
 These are properties of the prototype, not open questions.
 
-- Sample gates are **product heuristics**, not tests of statistical significance (§5.4).
+- Sample gates are **product heuristics**, not tests of statistical significance ([Benchmark and sample gates](#54-benchmark-and-sample-gates)).
 - **A large headline volume does not by itself guarantee a comparison qualifies.** Every gate is two-sided: the **previous period** must qualify as well as the current one, and each metric's own denominator must meet its own gate. A period with many merged PRs can still show no merge-rate delta.
-- No budget finding arises from the fixture — February MTD is **$4.00** — so budget behaviour is proven only by B1–B8 (§8.5).
-- Per-team budget amounts are not fixed here; the demo values belong to the fixture generator and `03-architecture.md`.
-- Severity is two-valued, with only budget risk escalating (§6).
-- The non-admin redacted friction string is described, not specified; the exact copy belongs to `02-requirements.md`.
-- Production task lifecycle, retry orchestration, event deduplication, historical seat changes and branch renaming are all explicitly outside this contract (§1.3).
+- No budget finding arises from the fixture — February MTD is **$4.00** — so budget behaviour is proven only by B1–B8 ([Budget, and boundary examples the fixture cannot reach](#85-budget-and-boundary-examples-the-fixture-cannot-reach)).
+- Per-team budget amounts are not fixed here; the installed values belong to the [demo dataset configuration](04-technical-spec.md#dataset-configuration).
+- Severity is two-valued, with only budget risk escalating ([Attention rules](#6-attention-rules)).
+- The non-admin redacted friction string is described, not specified; the exact copy belongs to [requirements](02-requirements.md).
+- Production task lifecycle, retry orchestration, event deduplication, historical seat changes and branch renaming are all explicitly outside this contract ([Demo limitations (explicit)](#13-demo-limitations-explicit)).
 
 ### 10.3 Dataset coverage — settled
 
-The shipped demo dataset covers the **latest date presets** and, for each, its **equal-length comparison period**, its **28-day failure-spike baseline**, and the **evaluated budget month-to-date** (§6.1). Dataset size, calendar dates and `dataAvailableFrom` are configured in `04-technical-spec.md` §6 and are not repeated here.
+The shipped demo dataset covers the **latest date presets** and, for each, its **equal-length comparison period**, its **28-day failure-spike baseline**, and the **evaluated budget month-to-date** ([Budget risk](#61-budget-risk)). Dataset size, calendar dates and `dataAvailableFrom` are configured in [Demo data](04-technical-spec.md#6-demo-data) and are not repeated here.
 
-A **custom range lying wholly inside the published coverage is valid**, even when its comparison period or failure baseline falls outside that coverage. Those are not errors: the comparison resolves to `no_baseline` and the affected rules to `not_evaluated` (§1.2, §1.5, §6), each carrying its reason and neither rendered as healthy.
+A **custom range lying wholly inside the published coverage is valid**, even when its comparison period or failure baseline falls outside that coverage. Those are not errors: the comparison resolves to `no_baseline` and the affected rules to `not_evaluated` ([Result envelope](#12-result-envelope) and [Data coverage](#15-data-coverage), [Attention rules](#6-attention-rules)), each carrying its reason and neither rendered as healthy.
 
 The earlier requirement that coverage span the baseline of *every* selectable historical range is **withdrawn**. It cannot hold for a range beginning at `dataAvailableFrom`, and it is unnecessary — the unavailable-baseline states exist precisely for that case.
 
-### 10.4 Open questions
+### 10.4 Dataset configuration
 
-1. **Per-team budget values and denial-event volume** the generator should produce so the panel has findings to display. This contract defines the rules, not the data.
+Per-team budgets and denial-event volumes are settled in the [demo dataset configuration](04-technical-spec.md#dataset-configuration). They are fixture choices, not additional metric rules. No metric decision remains open here.

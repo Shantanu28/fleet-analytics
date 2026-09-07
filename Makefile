@@ -51,6 +51,12 @@ test:
 	./mvnw verify
 	cd frontend && npm run test && npm run type-check && npm run build
 
-## e2e: M6. Not implemented yet.
+## e2e: browser journeys against an isolated database this target creates and removes.
+## Migrates, generates types, seeds, builds the production frontend, then runs Playwright against
+## it. Nothing here touches the development database, the Compose volume or port 5432, and no
+## process is ever selected by name or by the port it holds. Requires the Chromium browser:
+## `(cd frontend && npx playwright install chromium)` (`--with-deps` on Linux).
+## Set E2E_DB_URL with E2E_DB_DISPOSABLE=yes to reuse a disposable database instead: it is
+## migrated and seeded in place, and is never removed.
 e2e:
-	@echo "e2e: not implemented until M6" >&2; exit 1
+	node scripts/e2e.mjs

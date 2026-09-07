@@ -1,6 +1,6 @@
 # 03 — Architecture
 
-> **Design direction agreed; production infrastructure is not implemented or capacity-tested.** M1 provides the prototype foundation; product milestones remain planned. See the [README](../README.md) for current implementation status.
+> **Design direction agreed; production infrastructure is not implemented or capacity-tested.** The prototype dashboard, API, authentication and synthetic dataset are implemented; the production services shown below are a design, not deployed infrastructure. See the [README](../README.md) for current implementation status.
 > [Research](00-research.md) owns product scope, the [metrics contract](01-metrics-contract.md) owns calculations, [requirements](02-requirements.md) own behaviour, and the [technical spec](04-technical-spec.md) owns implementation details. This document does not expand prototype scope.
 
 ## 1. Context and scale
@@ -38,7 +38,7 @@ Fleet connects agent execution, spend and PR outcomes. Correct attribution, tena
 
 ### 2.2 Prototype
 
-React calls a Spring Boot HTTP API backed by PostgreSQL. The planned API provides signed-JWT login, organisation-scoped queries, metric calculations and role-based redaction. jOOQ handles SQL; Flyway owns migrations. An explicit deterministic seeder replaces upstream integrations. Two demo organisations have ADMIN and VIEWER accounts; switching organisations requires signing into another account.
+React calls a Spring Boot HTTP API backed by PostgreSQL. The API provides signed-JWT login, organisation-scoped queries, metric calculations and role-based redaction. jOOQ handles SQL; Flyway owns migrations. An explicit deterministic seeder replaces upstream integrations. Two demo organisations have ADMIN and VIEWER accounts; switching organisations requires signing into another account.
 
 Kafka, ClickHouse, archival, Redis, external ingestion and reporting workers are production-only. The prototype exercises real persistence and calculations, not canned chart responses. Production requires different ingestion, analytical queries and consistency mechanisms—not merely a database-adapter swap.
 
@@ -69,7 +69,7 @@ Aggregates are rebuildable accelerators, never replacements for facts. Pool coun
 
 Queries explicitly carry tenant, filters, timestamp basis and reporting revision. Period metrics use their own event timestamps. The funnel selects tasks by creation time and follows outcomes through `dataThrough`. Comparisons, the 28-day failure baseline and budget month each use their own window. The organisation benchmark drops the team filter but retains the repository filter.
 
-The prototype uses jOOQ/PostgreSQL for selection and population totals within one `REPEATABLE READ` transaction. Java derives ratios, gates, states and ranking. Production uses ClickHouse-specific queries over canonical facts. Avoid joining independent one-to-many branches before summing costs. Physical schema and metric-to-query mappings remain in technical spec §3–§4.
+The prototype uses jOOQ/PostgreSQL for selection and population totals within one `REPEATABLE READ` transaction. Java derives ratios, gates, states and ranking. Production uses ClickHouse-specific queries over canonical facts. Avoid joining independent one-to-many branches before summing costs. See the [data model](04-technical-spec.md#3-data-model-and-lifecycle) and [request flow](04-technical-spec.md#4-request-and-calculation-flow) for the implemented query path.
 
 ## 4. Ingestion and recovery
 
@@ -112,7 +112,7 @@ Delivery is at least once, not an end-to-end exactly-once claim. Workers commit 
 - **Publication:** expose a complete-day reporting interval, revision and source status. An incomplete source makes dependent metrics `missing_data`, not zero; unrelated sections remain available. Reject selected ranges outside coverage; unavailable baselines do not invalidate current values.
 - **Consistent reads:** all sections must use one coherent revision. The prototype uses fixed publication metadata and a database read snapshot. Production needs a protocol that exposes a revision only when its required facts and summaries are query-visible. A revision label alone is not a cross-table snapshot.
 
-Late events can correct facts and trigger rebuilding of affected summaries before a corrected revision is exposed. The production publication protocol and replica-read behaviour must be specified and tested before launch (§10); they are not assumed ClickHouse guarantees.
+Late events can correct facts and trigger rebuilding of affected summaries before a corrected revision is exposed. The production publication protocol and replica-read behaviour must be specified and tested before launch ([Production validation before launch](#10-production-validation-before-launch)); they are not assumed ClickHouse guarantees.
 
 ## 6. Identity and trust boundaries
 
@@ -139,15 +139,15 @@ Retain relevant retry and PR transitions instead of overwriting all history. Reo
 
 | Capability | Assignment prototype | Production target |
 |---|---|---|
-| Foundation | M1 scaffold, baseline migration and build/test setup exist | Deployment and recovery validation required |
-| UI, login, API, metrics, redaction | Planned product milestones; see README status | Same product semantics, validated at scale |
-| Data | Explicit synthetic seeder; 180-day dataset planned | Upstream ingestion; six-calendar-month reporting |
+| Foundation | Build, migrations and automated checks implemented | Deployment and recovery validation required |
+| UI, login, API, metrics, redaction | Implemented; see the execution record for verification | Same product semantics, validated at scale |
+| Data | Explicit synthetic seeder; fixed 180-day dataset | Upstream ingestion; six-calendar-month reporting |
 | Storage | PostgreSQL, Flyway, jOOQ | PostgreSQL metadata + ClickHouse analytics + archival |
 | Consistency | Fixed publication and transactional reads | Source coverage and coherent publication protocol |
 | Kafka, reconciliation, optional cache/rollups | Not implemented | Production responsibilities |
 | Agent execution and billing providers | Not built | External authoritative systems |
 
-The small hand-checkable contract fixture and larger demo dataset are different. Demo dates, population sizes and team budget amounts belong to technical spec §6. Runtime tests were not rerun for this documentation change.
+The small hand-checkable contract fixture and larger demo dataset are different. See [demo data](04-technical-spec.md#6-demo-data) for dates, population sizes and budgets, and the [execution record](06-plan.md) for checks actually run.
 
 ## 9. Decisions and trade-offs
 

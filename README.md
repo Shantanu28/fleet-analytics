@@ -1,138 +1,112 @@
 # Fleet Analytics
 
-Organization-level analytics dashboard for **Fleet**, an imaginary platform where engineers delegate coding tasks to agents that run in isolated cloud sandboxes and open pull requests. A take-home assignment for a developer-tools company, built spec-first with an AI-first workflow.
+A customer-facing analytics dashboard for an imaginary cloud coding-agent platform.
 
-> **Status: M1–M4 backend implemented.** Authentication, tenant-scoped context and dashboard APIs, metrics/findings, and the safe two-organisation demo installer are available. M4's seeded dashboard integration is verified against M3. The React UI currently supports sign-in and organisation context; dashboard rendering and browser journeys remain M5–M6. Verification evidence is recorded in [the execution plan](docs/06-plan.md).
+**“Is Fleet producing accepted code changes at a sustainable cost — and where should we act this week?”**
 
-## What this is
+The dashboard connects adoption, execution, merged pull requests, spend and sandbox-policy friction. It reports at organisation, team and repository level—not individual engineer performance. A merge is an acceptance proxy, not proof of quality or hours saved.
 
-A customer-facing dashboard that lets an engineering organization understand its use of cloud coding agents — adoption, outcomes, cost and policy friction — at the org, team and repository level, never the individual engineer.
+React + TypeScript + TanStack Query on the frontend; Java 25 + Spring Boot, PostgreSQL, Flyway and jOOQ on the backend. Authentication, SQL, calculations and role-based redaction are real. Upstream agent/GitHub/metering integrations are replaced by deterministic synthetic records.
 
-It answers one question: **"Is Fleet producing accepted code changes at a sustainable cost — and where should we act this week?"**
+## Try it locally
 
-The frozen prototype is five KPI cards, an outcome funnel, two trends, one team/repository comparison table against an organizational benchmark, and a needs-attention panel showing at most three computed findings — all under global date, team and repository filters. Full scope, the broader metric catalogue and what was deferred: [docs/00-research.md](docs/00-research.md).
-
-## How it's being built
-
-Spec-driven, one commit per document, so the history shows each decision as it was made:
-
-| # | Document | Owns | Status |
-|---|---|---|---|
-| 00 | [Research & product framing](docs/00-research.md) | product scope: personas, the one question, the frozen P0 | landed |
-| 01 | [Metrics contract](docs/01-metrics-contract.md) | calculations: formulas, timestamps, exclusions, thresholds | landed |
-| 02 | [Requirements](docs/02-requirements.md) | acceptance criteria | landed |
-| 03 | [Architecture](docs/03-architecture.md) | system boundaries, and what the prototype mocks | draft |
-| 04 | [Technical spec](docs/04-technical-spec.md) | stack, structure, schema, API contracts | draft |
-| 05 | [Testing spec](docs/05-testing-spec.md) | how every acceptance criterion is proven | draft |
-| 06 | [Plan](docs/06-plan.md) | milestones and the cut line | draft |
-| 07 | AI workflow | a log kept during development: how Claude Code was driven, and where it was wrong | not started |
-
-Documents 03–06 are drafts under review, not settled decisions. Decision records (ADRs) are added alongside significant decisions as they are made; none exists yet.
-
-## Planned stack
-
-**React + TypeScript** frontend using **TanStack Query** for server state, **Java 25 + Spring Boot** API, **PostgreSQL** with **Flyway** migrations and **jOOQ** queries (no JPA/Hibernate). Sign-in is username and password with short-lived JWTs, and the dashboard shows one organisation at a time, scoped from the verified identity.
-
-Vite and the M1 dependency versions are **settled and in use**, and **TanStack Query is integrated** — brought forward to M2 for the context query. Settled in M2: RS256, Argon2id, Vitest with React Testing Library, and a test-scoped OpenAPI response validator. Still pending: the browser-testing tool and dependencies belonging to later milestones — see `docs/04-technical-spec.md` §8.
-
-Then implementation: one milestone per pull request, tests first.
-
-## Run it
-
-**Backend quickstart.** This verifies the backend and current sign-in UI. Dashboard rendering remains M5.
-
-Requires **Java 25**, **Node 22.12+ (or 24+, or 26+)** — the component-test tooling no longer supports Node 20 — and a running Docker-compatible runtime (Docker Desktop, Colima, or similar) with Compose.
+Requires Java 25, Node (the tested version is pinned in [.nvmrc](.nvmrc)), and Docker with Compose. Commands below start in the repository root. The standard setup uses port 5432; if another checkout owns it, use the [isolated database instructions](docs/04-technical-spec.md#7-local-development).
 
 ```bash
-make setup   # start PostgreSQL, wait for readiness, migrate, generate jOOQ types, install npm deps
-make test    # backend tests (incl. real PostgreSQL), React component tests, type-check and build
-```
-
-To run the backend and the Vite dev server together under the `dev` profile:
-
-```bash
-make dev
-```
-
-Ctrl-C stops both. It seeds nothing, changes no migrations and deletes no data — run `make setup` first.
-
-The API requires JWT signing keys and a separate persistent finding-ID secret. Set
-`FLEET_FINDINGS_ID_SECRET` to Base64-encoded key material containing at least 32 bytes; generate
-it once (for example with `openssl rand -base64 32`) and retain it outside the repository across
-restarts. There is no automatic fallback. For JWT signing, either configure a PEM key pair:
-
-```bash
-FLEET_JWT_PRIVATE_KEY=file:/path/to/private.pem FLEET_JWT_PUBLIC_KEY=file:/path/to/public.pem ./mvnw -pl backend spring-boot:run
-```
-
-or opt into generated development keys, which need **both** the flag and the `dev` (or `test`) profile:
-
-```bash
-FLEET_DEV_KEYS=true ./mvnw -pl backend spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-The flag on its own, under any other profile, does nothing: startup fails rather than falling back to an insecure default, and configured keys that are missing, unreadable, malformed or mismatched fail startup too rather than being quietly replaced by generated ones. Development keys are regenerated on every restart, so tokens do not survive a restart and are not shared between instances. Enabling them does **not** enable demo accounts — those need both the `demo` profile and `FLEET_DEMO_ACCOUNTS=true`. No key material is committed to this repository.
-
-`make setup` is safe to repeat: it re-validates the migration rather than reapplying it, and never drops data.
-
-The checks cover the backend schema, authentication, analytics API, metric calculations and seeded integration. They do not establish browser behavior for the frontend dashboard, which remains M5–M6. M4 seeding is described below.
-
-## Synthetic demo data (M4)
-
-The explicit seed command installs both organisations in one transaction. It returns `INSTALLED`
-on an empty database or `UNCHANGED` for matching, validated data. It refuses unmanaged or damaged
-data without changing it. It never migrates, resets or repairs a database. Ordinary startup does not seed.
-
-**Use a separate database when another checkout is active.** The existing Compose file uses port
-5432 and a shared project/volume identity. For a new isolated review database:
-
-```bash
-docker run --detach --name fleet-demo-review \
-  -e POSTGRES_DB=fleet_demo -e POSTGRES_USER=fleet -e POSTGRES_PASSWORD=fleet \
-  -p 127.0.0.1::5432 postgres:18.6-alpine
-docker exec fleet-demo-review pg_isready -U fleet -d fleet_demo  # wait for ready
-export DB_URL="jdbc:postgresql://$(docker port fleet-demo-review 5432)/fleet_demo"
-./mvnw -pl backend -Ddb.url="$DB_URL" flyway:migrate generate-sources
+make setup
+export DB_URL=jdbc:postgresql://127.0.0.1:5432/fleet
 make seed
-```
 
-The container name must be unused; do not substitute another checkout's container. `make seed`
-requires `DB_URL`; `DB_USER`/`DB_PASSWORD` default to the synthetic local `fleet` credentials.
-The separate seed launcher imports only datasource configuration, so it needs no JWT/HMAC secrets.
-To run tests against this build database, use `MAVEN_ARGS="-Ddb.url=$DB_URL" make test`.
-Testcontainers still creates independent test databases.
+# Generate once for this local environment. Keep it outside Git and retain it across restarts.
+export FLEET_FINDINGS_ID_SECRET="$(openssl rand -base64 32)"
 
-| Organisation | ADMIN username / password | VIEWER username / password |
-|---|---|---|
-| Northstar Engineering (A) | `admin` / `123456` | `viewer` / `demo-viewer-a` |
-| Harbor Labs (B) | `admin123` / `1234567` | `viewer123` / `demo-viewer-b` |
-
-These public credentials access synthetic data only. Each tenant has two published logins drawn
-from its engineers. Other engineers have undisclosed random passwords and VIEWER roles; all seeded
-users retain `is_demo_account=true`. Login still requires both the `demo` profile and
-`FLEET_DEMO_ACCOUNTS=true`, plus the normal JWT and finding-ID configuration above. For local API development:
-
-```bash
 FLEET_DEMO_ACCOUNTS=true ./mvnw -pl backend -Ddb.url="$DB_URL" spring-boot:run \
   -Dspring-boot.run.main-class=com.fleet.analytics.FleetAnalyticsApplication \
   -Dspring-boot.run.profiles=dev,demo
 ```
 
-Dataset `fleet-demo`, version `1`, seed `20260907`: **2026-03-05 through 2026-08-31 inclusive**
-(`dataThrough=2026-09-01T00:00:00Z`). A has 56 engineers/seats, 7 teams, 14 repositories and
-20,000 tasks; B has 10 engineers/seats, 2 teams, 20 repositories and 2,000 tasks. Each task has
-one run. Both tenants publish all eight logical sources for every day, including the empty March 5.
-Configuration and scenario evidence are recorded in [technical spec §6](docs/04-technical-spec.md#6-demo-data).
+In a second terminal, from the repository root:
 
-The investigation starts at **2026-08-02–2026-08-31, Payments, no repository filter**. M4 verifies
-qualifying populations and budget arithmetic directly in PostgreSQL. Authenticated endpoint tests
-also verify finding ranking, link patches and their destination responses, latest presets,
-tenant isolation and ADMIN/VIEWER redaction. Browser navigation and rendering remain M5–M6.
+```bash
+(cd frontend && npm run dev)
+```
 
-## Architecture
+Open the URL Vite prints (normally http://localhost:5173). The frontend proxies API requests to port 8080. Keep the API terminal's environment when restarting it.
 
-![Fleet Analytics proposed production architecture](docs/production-architecture.png)
+| Organisation | ADMIN username / password | VIEWER username / password |
+|---|---|---|
+| Northstar Engineering | `admin` / `123456` | `viewer` / `demo-viewer-a` |
+| Harbor Labs | `admin123` / `1234567` | `viewer123` / `demo-viewer-b` |
 
-Proposed production design—not the infrastructure implemented by this prototype. The prototype targets React, Spring Boot, and PostgreSQL with synthetic domain data; current implementation status is described above.
+These are public demo credentials for synthetic data only. Both roles see their organisation's dashboard; only ADMIN receives the denied-domain detail. Sign out, then sign into the other organisation to compare datasets.
 
-See [Architecture](docs/03-architecture.md) for component responsibilities, trade-offs, and prototype boundaries.
+Demo accounts require both the `demo` profile and `FLEET_DEMO_ACCOUNTS=true`. The `dev` profile supplies ephemeral JWT keys; configured PEM keys take precedence and invalid configuration fails startup. The separate finding-ID secret is always required. [Authentication details](docs/04-technical-spec.md#51-authentication-and-redaction).
+
+Sign-out clears the browser's in-memory token and cached data; it does **not** revoke an issued JWT. Tokens expire after 15 minutes, with the configured clock-skew tolerance. Reloading requires login again, then restores the URL's filters.
+
+## What to explore
+
+- Five headline cards: merged PRs, terminal PR merge rate, blended cost per merged PR, task completion rate, and active/licensed seats.
+- A task-cohort funnel, two daily trends and a team/repository comparison table.
+- At most three computed findings, with evidence and navigation to the relevant view.
+- Explicit loading, zero, unavailable, insufficient-sample and error states.
+
+The seed covers **5 March–31 August 2026**, not the current day. Northstar has 56 seats, 7 teams, 14 repositories and 20,000 tasks. Harbor has 10 seats, 2 teams, 20 repositories and 2,000 tasks. Each demo task has one run. [Dataset details](docs/04-technical-spec.md#6-demo-data).
+
+For a short walkthrough: sign in as Northstar ADMIN, select **Payments** over **2–31 August 2026**, inspect its budget finding and the **repo-api** failure spike, then use browser Back. Switch to VIEWER to see redacted policy evidence. The funnel and headline cards intentionally use different time bases, explained on the page.
+
+The seed installs both organisations atomically. Repeating it validates existing data and returns `UNCHANGED`; incompatible or unmanaged data is refused without repair or deletion. Ordinary startup never seeds.
+
+## Run the checks
+
+```bash
+make test
+(cd frontend && npx playwright install chromium) # add --with-deps on Linux
+node --test scripts/e2e*.test.mjs
+make e2e
+```
+
+`make test` runs backend/database/API tests, React tests, type-checking and the frontend build. `make e2e` creates a separate PostgreSQL container, seeds it, builds the frontend, starts isolated servers on 8091/4183, runs Chromium and cleans up its own resources.
+
+Override occupied test ports with `FLEET_E2E_API_PORT` and `FLEET_E2E_PREVIEW_PORT`. To supply a disposable test database, set `E2E_DB_URL` and `E2E_DB_DISPOSABLE=yes`; that database is migrated and seeded but never removed.
+
+CI is configured in [ci.yml](.github/workflows/ci.yml), but a successful GitHub run has **not yet been verified**. Current local evidence and remaining release checks are in the [execution record](docs/06-plan.md). Browser tests include injected 500/401 responses; those prove recovery handling, not a real outage or token expiry. Accessibility checks are targeted, not a WCAG audit.
+
+Only an allowlisted browser summary is uploaded. Raw local `frontend/test-results/` files can contain restricted display data and must not be shared. [Testing strategy](docs/05-testing-spec.md).
+
+## Decisions worth discussing
+
+| Choice | Alternative | Why this prototype uses it |
+|---|---|---|
+| One dashboard endpoint | Separate endpoints per section | One coordinated filter/revision response; separate endpoints would allow independent loading and retries |
+| Sequential queries in one repeatable-read transaction | Consolidated SQL or parallel queries with a shared snapshot | A straightforward, tested consistency boundary without cross-connection snapshot coordination |
+| Query-time metrics over source facts | Precomputed reporting tables | Verify and evolve formulas against real records before adding refresh/backfill logic |
+| Java and jOOQ | Node backend or ORM-based persistence | Familiar backend stack and explicit, typed SQL; code generation requires a migrated database |
+| In-memory JWT | Server-side session or persistent browser token | Small demo login flow; reload requires login and sign-out cannot revoke issued tokens |
+
+One endpoint does **not** require sequential SQL: the HTTP interface can stay the same while its
+query implementation evolves. Today the response waits for all section queries, so latency still
+needs measurement and optimisation. The [execution record](docs/06-plan.md#remaining-release-checks)
+records the outstanding performance investigation. These alternatives have not been benchmarked
+against each other. See [trade-offs and the scale-up path](docs/04-technical-spec.md#8-decisions-and-remaining-configuration).
+
+## Read the project
+
+| Document | Use it for |
+|---|---|
+| [Research](docs/00-research.md) | Personas, metric choices and deliberate exclusions |
+| [Metrics contract](docs/01-metrics-contract.md) | Exact formulas, populations, states and worked examples |
+| [Requirements](docs/02-requirements.md) | User behaviour and acceptance criteria |
+| [Architecture](docs/03-architecture.md) | Proposed production components and prototype boundaries |
+| [Technical guide](docs/04-technical-spec.md) | Code structure, API, authentication and data |
+| [Testing strategy](docs/05-testing-spec.md) | What each test layer proves |
+| [Execution record](docs/06-plan.md) | Milestones and verification evidence |
+| [OpenAPI](contracts/openapi.yaml) | Implemented HTTP interface |
+
+## Production direction and limits
+
+![Proposed production architecture](docs/production-architecture.png)
+
+The diagram describes a **proposed production system**, not deployed infrastructure. Kafka, ClickHouse, archive/reconciliation workers and optional Redis/rollups are not implemented in the prototype. Production also needs SSO/session lifecycle, rate limiting, operational safeguards, provider integrations and measured capacity. [Production validation](docs/03-architecture.md#10-production-validation-before-launch).
+
+Next priorities: verify CI and a post-commit clean clone; profile the slow request path; harden authentication and deployment; then integrate upstream events and add selective aggregates where measurements justify them.

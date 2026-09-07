@@ -1,85 +1,83 @@
-# 06 — Execution plan
+# 06 — Execution plan and verification record
 
-> **Status: DRAFT, awaiting review.** An execution guide, not a specification. Scope is `00-research.md` §7 · calculations `01` · acceptance criteria `02` · boundaries `03` · implementation `04` · tests `05`. Nothing is copied from them here.
-> **M1–M4 backend work is implemented; M5 and M6 remain planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
-
-## How to work the plan
-
-Small test-first steps. Tests accompany **every** milestone — M6 completes verification, it is not where testing begins. **Stop after each milestone for human review.** No automatic commits: propose changes and commit messages; **the human stages and commits** (`CLAUDE.md`).
-
-## Prerequisites — open decisions that block a milestone
-
-TanStack Query is approved. Nothing else below is; none is resolved here.
-
-**M1's tooling and compatibility checks are settled** — the build tool and every dependency version are confirmed and in use, recorded in `04-technical-spec.md` §1.
-
-| Blocks | Still open |
-|---|---|
-| M2 | JWT signature algorithm (RS256 recommended); password hashing (Argon2id recommended); **coverage metadata tables** (`04` A.5), needed here because the context response carries coverage; component test stack (Vitest + React Testing Library recommended), needed here because M2 creates the first UI |
-| M3 | `cost_cents >= 0` |
-| M4 | Resolved in `04` §6 M4 configuration; reviewed and integrated with M3 |
-| M6 | browser test tool (Playwright recommended); coverage thresholds |
+The project was built in six milestones, with tests alongside each change.
+This page records that sequence; the [requirements](02-requirements.md) and
+[metrics contract](01-metrics-contract.md) remain the behavioural specifications.
 
 ## Milestones
 
-### M1 — Foundation ✔ complete
-**Deliverable.** A clean clone builds: PostgreSQL running, Flyway migrations at head, jOOQ types generated, backend and frontend skeletons compiling.
-**Touches.** Root `pom.xml`, Maven wrapper, `docker-compose.yml`, `Makefile`, `backend/pom.xml`, `backend/src/main/resources/db/migration/`, `frontend/`.
-**Done when.** `make setup` succeeds from a clean clone in the order fixed by `04` §7, **and then** the backend and frontend compile and a PostgreSQL integration smoke test passes against a Testcontainers instance. Setup completing is not proof on its own — the compile and the smoke test are what show the generated types and the test path actually work.
-**Result.** `make setup` and `make test` pass from a clean environment; the PostgreSQL smoke test reports 1 test, 0 failures, 0 errors, 0 skipped; frontend type-check and build pass. `make setup` re-runs without reapplying the migration or dropping data.
-**Review gate.** Reviewed.
+| Milestone | Delivered | Evidence / status                                                                |
+|---|---|----------------------------------------------------------------------------------|
+| M1 — Foundation | Maven/npm setup, PostgreSQL, Flyway, jOOQ and smoke test | Committed: `6d54607`                                                             |
+| M2 — Authentication and tenancy | Username login, JWT checks, tenant context and React session | Committed: `c946c5f`                                                             |
+| M3 — Analytics backend | Domain schema, dashboard API, exact metric calculations and findings | Committed: `22ec70c`, `8c229ef`                                                  |
+| M4 — Demo data | Deterministic two-tenant dataset and safe installer | Committed: `74a22f0`                                                             |
+| M5 — Dashboard | Filters, cards, charts, funnel, comparisons, findings and styled login | Committed: `8ac9296`                                                             |
+| M6 — Delivery | Chromium journeys, isolated runner, CI configuration and documentation | Complete — implementated and human review in pending; plus awaiting human commit |
 
-### M2 — Authentication and tenancy ✔ complete
-**Deliverable.** Username/password login, signed JWT validation, a protected `analytics/context`, and a minimal UI that signs in and shows the authenticated organisation name.
-**Touches.** Backend `security` and `web` packages; migrations for organisation, team, **repository**, user and seat tables plus the **publication and source-coverage metadata** the context response returns; `contracts/openapi.yaml` for the login and context endpoints; a login view and context fetch in `frontend/src`.
-**Data.** Minimal **explicit two-tenant fixtures**, written for these tests only. M2 does **not** depend on M4's demo generator and adds **no startup seeding**.
-**Done when.** For the login and context slice only: valid credentials issue a token and load the context; invalid credentials, and missing, expired, malformed, tampered, wrongly-signed, wrong-issuer and wrong-audience tokens are all rejected; the context returns the organisation name, and only that organisation's teams, repositories, coverage and seat count, resolved from the token alone; a foreign identifier is indistinguishable from a nonexistent one; demo accounts are inert outside demo configuration; the UI displays the organisation name. Dashboard-response tenant isolation and `ADMIN`/`VIEWER` redaction are verified in **M3**; their rendered behaviour, cache clearing and reload/restore in **M5–M6**. No acceptance criterion is dropped — they land in the milestone that can actually exercise them.
-**Result.** `make test` exits 0: 69 backend tests and 28 frontend tests, 0 failures, 0 errors, 0 skipped, plus type-check and production build. Authentication uses Spring Security's resource-server support with a local decoder; responses are validated against `contracts/openapi.yaml` by a real schema validator, proven to reject a deliberately non-conforming body. Key configuration is exercised through Spring property binding and profile activation, and fail-closed behaviour was confirmed by a real startup failure. TanStack Query was brought forward here for the context query.
-**Review gate.** Awaiting human review.
+The human reviews each milestone and stages/commits manually. Completion of implementation does
+not imply a deployed service, successful remote CI or production readiness.
 
-### M3 — Analytics backend
-**Deliverable.** The metrics module and its SQL over the hand-checkable contract fixture: five KPIs, funnel, trends, comparison with benchmark, and the four findings; `analytics/dashboard` serving them; OpenAPI conformance.
-**Touches.** Backend `metrics` and `data` packages, remaining migrations, `contracts/openapi.yaml` extended with the dashboard endpoint, backend tests.
-**Done when.** Fixture results equal the independently stated values in `01` §8; fan-out, coverage-state, gate and threshold tests pass (`05` §2–§3); every response validates against the OpenAPI contract.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+## Checks and evidence
 
-### M4 — Demo dataset
-**Deliverable.** Deterministic generation of both organisations as configured in `04` §6, and the installer with its four outcomes.
-**Touches.** Backend `seed` package and its tests.
-**Done when.** Two installs produce identical canonical business data; per-tenant counts match the manifest; required scenarios exist, including the failure spike the investigation journey needs; install, no-op and both refusals behave; concurrent invocation does not double-install.
-**Initial M4 verification.** `MAVEN_ARGS=-Ddb.url=jdbc:postgresql://127.0.0.1:32768/fleet_m4 make test`
-passed in the isolated worktree: 102 backend tests (including 11 M4 tests), 40 frontend tests,
-type-check and production build. M4 PostgreSQL tests cover independent deterministic installs,
-random hashes, no-op row preservation, refusals, publication rollback and overlapping advisory-lock
-waiters. Contract-based SQL verifies populations and scenarios without invoking M3 endpoints.
-**M3 integration.** Eight additional API test cases pass against M3 commit `8c229ef`, using a
-separate seeded Testcontainer and the real authenticated filter chain. They verify latest preset
-coverage and tenant-specific ledger totals, Payments budget/failure ranking, navigation patches and
-destination responses, sparse/empty/zero states, missing baselines, tenant isolation and VIEWER
-redaction. Browser history and frontend rendering remain M5–M6.
-**Combined verification.** `MAVEN_ARGS=-Ddb.url=jdbc:postgresql://127.0.0.1:32768/fleet_m4_final make test`
-passes: 435 backend tests (19 seed safety/integration cases), 40 frontend tests, type-check and
-production build, with no failures or skipped backend tests. No M3 production code was changed.
-**Review gate.** M4 implementation accepted by the user; integration requested after M3 was pushed.
+Review run on 7 September 2026:
 
-### M5 — Dashboard
-**Deliverable.** The full P0 page: TanStack Query integration, URL-driven filters, five KPI cards, two trends, the cohort funnel, the comparison table and the findings panel, with every state.
-**Touches.** `frontend/src` and its component tests.
-**Done when.** `02` AC-01 through AC-07 render from the API with no metric computed client-side; loading, empty, unavailable and insufficient-sample states are distinct; query keys, cancellation and cache clearing behave per `04` §5.2; component tests in `05` §4 pass. Basic keyboard and 375px behaviour is built here, not deferred.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+| Check | Evidence |
+|---|---|
+| Frontend type-check and component tests | Independently rerun after corrections: 202 tests passed |
+| Production frontend build | Passed within the browser runner |
+| Full Chromium suite | Passed after review fixes: 27 journeys |
+| Runner cleanup regression | Failed before the fix; passed after it. A child ignoring SIGTERM is stopped even after its parent exits |
+| Diagnostics regression | Deliberately failed browser assertion; public console/summary excludes the synthetic restricted marker |
+| Backend suite | Independently rerun: 435 tests passed, 0 failures, 0 errors, 0 skipped |
+| GitHub CI | Configured, not yet run/verified remotely |
+| Clean checkout | Claude reported a working-tree copy with isolated Compose ports; not a post-commit git clone |
 
-### M6 — Delivery
-**Deliverable.** Browser journeys, accessibility and responsive verification, CI, and a clean-clone check.
-**Touches.** `frontend/e2e`, CI configuration, README run instructions.
-**Done when.** The journeys in `05` §5 pass, including two-organisation isolation and tenant switching; `02` AC-08 passes by keyboard and at 375px; CI gates run in the documented order; a clean clone reproduces everything from `make setup` to `make e2e`.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+Re-run checks after changes. Historical counts are evidence from specific runs, not permanent
+coverage guarantees.
 
-## Cut line
+Commands, from the repository root:
 
-Excluded, and already deferred upstream: ingestion pipelines, rollups, queue/cache/columnar stores, refresh tokens, rotation and revocation, registration and password reset, an organisation switcher, per-user analytics, exports, custom dashboards, and every deferred metric in `00-research.md` §10.1.
+```bash
+make test
+(cd frontend && npx playwright install chromium) # --with-deps on Linux
+node --test scripts/e2e*.test.mjs
+make e2e
+```
 
-If time runs short, cut **polish inside M5** — visual refinement, optional affordances. Never cut a metric's correctness, a coverage or unavailable state, or a tenancy, redaction or authorisation control. Those are the product.
+`make test` needs the migrated build database. Integration tests create separate Testcontainers.
+For a non-default build database, supply matching Maven properties and application environment
+variables as explained in [local development](04-technical-spec.md#7-local-development).
+The browser runner supplies both channels automatically.
 
-## Note on the visual references
+## What review changed
 
-The screenshots in `02` §2 predate authentication: no login page, and a header showing a viewer role rather than the organisation name AC-09.13 requires. The written criteria govern until they are regenerated, which is a follow-up after M5 and blocks nothing.
+- A real 375px browser check exposed page overflow from a visually hidden element. Its containing
+  block is now explicit.
+- Cleanup previously forgot surviving descendants when their parent exited. Ownership now lasts
+  until the process group is gone; the regression exercises escalation.
+- Browser tests now switch organisations in the same React session and require a fresh request
+  when revisiting a network-friction finding.
+- CI publishes a status-only summary. Disabling traces alone did not make screenshots or raw
+  assertion reports safe to publish.
+- The README browser-install command now returns to the repository root before `make e2e`.
+
+## Remaining release checks
+
+- Human commit of M6 and these corrections.
+- First successful GitHub CI run and a true clean-clone run after commit.
+- Separate performance follow-up after the M6 commit: collect PostgreSQL planner statistics
+  after successful demo seeding, then verify on a fresh database and remeasure dashboard latency.
+  Diagnostics confirmed missing statistics caused a poor funnel-query plan; the earlier
+  10.6-second cold request was not reproduced and remains unexplained.
+- A production deployment and security/accessibility/capacity audits remain outside this assignment.
+
+## Scope boundary
+
+Do not expand this milestone with ingestion, Kafka, ClickHouse, Redis, rollups, refresh/revocation,
+SSO, per-user analytics, exports or a custom dashboard builder.
+[Deferred product work](00-research.md#10-deferred-and-cut) and
+[production validation](03-architecture.md#10-production-validation-before-launch) explain the next steps.
+
+The images in [requirements](02-requirements.md#2-page-structure-and-visual-reference) are design
+references from before implementation, not screenshots or test evidence of the current application.
