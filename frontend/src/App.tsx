@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ContextView } from './ContextView'
+import { DashboardPage } from './dashboard/DashboardPage'
 import { LoginView } from './LoginView'
 import { SessionProvider, useSession } from './auth/session'
 
 function Routes() {
   const { session } = useSession()
-  return session ? <ContextView /> : <LoginView />
+  return session ? <DashboardPage /> : <LoginView />
 }
 
 /**

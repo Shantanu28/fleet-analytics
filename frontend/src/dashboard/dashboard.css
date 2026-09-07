@@ -1,0 +1,880 @@
+/*
+ * Plain CSS, no framework. A restrained palette: one accent for data, neutral greys for structure,
+ * and text or shape carrying every meaning that colour also carries (AC-08.6).
+ *
+ * The layout rules that matter are the overflow ones. `min-width: 0` appears on every grid and flex
+ * child that contains a table or an SVG, because the default `auto` minimum makes a child refuse to
+ * shrink below its content and pushes the whole page sideways — which is exactly what AC-08.4
+ * forbids at 375px.
+ */
+
+@import '../theme.css';
+
+.page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  /* Belt and braces against a stray wide child escaping its own scroll container. */
+  overflow-x: hidden;
+}
+
+/* --- Header --------------------------------------------------------------------------------- */
+
+.page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem var(--gap);
+  align-items: start;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-header__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.25rem;
+  min-width: 0;
+}
+
+.page-header__product {
+  font-weight: 700;
+}
+
+.page-header__scope {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.page-header__meta,
+.page-header__selection,
+.page-header__viewer {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.page-header__cutoff {
+  font-family: var(--mono);
+}
+
+.page-header__account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  text-align: right;
+}
+
+.page-header__role {
+  font-family: var(--mono);
+}
+
+.page-header__selection {
+  grid-column: 1 / -1;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge--demo {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.badge--medium {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.badge--high {
+  color: var(--error);
+  background: var(--error-soft);
+}
+
+/* --- Controls ------------------------------------------------------------------------------- */
+
+/* aria-pressed is the state; the fill is a second, redundant signal rather than the only one. */
+.button--preset[aria-pressed='true'],
+.button--segment[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.button--link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+}
+
+.segmented {
+  display: flex;
+  gap: 0;
+}
+
+.segmented .button--segment:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.segmented .button--segment:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-left: -1px;
+}
+
+/* --- Filters -------------------------------------------------------------------------------- */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-end;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.filters__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.filters__group--reset {
+  margin-left: auto;
+}
+
+.filters__legend,
+.filters__label {
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.filters__presets,
+.filters__range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.filters__custom-state {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.selection-summary {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+/* --- Notices -------------------------------------------------------------------------------- */
+
+.notice {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+
+.notice__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+}
+
+.notice--error,
+.notice--selection {
+  border-left-color: var(--error);
+  background: var(--error-soft);
+}
+
+.notice--period,
+.notice--reranked {
+  border-left-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.notice--loading {
+  border-left-color: var(--accent);
+}
+
+/* --- KPI row -------------------------------------------------------------------------------- */
+
+.kpis {
+  display: grid;
+  /* Five across at 1440px; the auto-fit minimum wraps sensibly at intermediate widths and
+     collapses to one column on a phone without a separate breakpoint. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--gap);
+  margin: 1.5rem 0;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.kpi-card__label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.kpi-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.kpi-card__definition {
+  margin: 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.kpi-card__seats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.kpi-card__seats-divider {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 1.5rem;
+}
+
+.kpi-card__seats-caption,
+.kpi-card__utilisation {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.kpi-card__utilisation {
+  margin: 0;
+}
+
+/* An explanation for a real zero. Quiet, but present: a bare 0 leaves a reader unsure whether the
+   filter was wrong, the data was missing, or nothing happened (AC-07.3). */
+.kpi-card__zero-note,
+.funnel__zero-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.funnel__zero-note {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--canvas);
+  font-size: 0.8125rem;
+}
+
+.kpi-card__utilisation-label {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+}
+
+/* --- Metric values -------------------------------------------------------------------------- */
+
+.metric-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-value--headline {
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* An unavailable value is a sentence, not a number: it must not be mistaken for one at a glance. */
+.metric-unavailable {
+  display: inline-block;
+  font-size: 0.8125rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.metric-unavailable__mark {
+  font-family: var(--mono);
+  font-style: normal;
+}
+
+.comparison {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.comparison__glyph {
+  font-size: 0.625rem;
+}
+
+.comparison__delta {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Deltas are deliberately neutral.
+ *
+ * Colouring an increase green and a decrease red would assert that up is good — true for merged PRs
+ * and false for cost per merged PR, where a rise is exactly what a reader should worry about. The
+ * page does not know which direction is favourable for a given metric, so it does not imply one.
+ * The sign, the arrow and the accessible direction word carry the movement; nothing carries a verdict.
+ */
+
+.comparison--suppressed {
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* The direction word: available to assistive technology, redundant for sighted readers. */
+.comparison__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Panels --------------------------------------------------------------------------------- */
+
+.panel {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.panel--highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.panel__head {
+  margin-bottom: 1rem;
+}
+
+.panel__head--split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.panel__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.panel__subtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.disclosure {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.disclosure summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.disclosure p {
+  margin: 0.6rem 0 0;
+}
+
+/* --- Funnel --------------------------------------------------------------------------------- */
+
+.funnel__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.funnel__stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.funnel__stage {
+  display: grid;
+  grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr) minmax(4rem, auto);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.funnel__stage-label {
+  font-size: 0.8125rem;
+}
+
+.funnel__bar-track {
+  height: 1.35rem;
+  min-width: 0;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.funnel__bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.funnel__stage-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.funnel__exits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.funnel__exit-group {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--canvas);
+}
+
+.funnel__exit-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.funnel__exit-list {
+  margin: 0;
+}
+
+.funnel__exit-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.funnel__exit-row dt {
+  color: var(--ink-soft);
+}
+
+.funnel__exit-row dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+
+.funnel__identity {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+}
+
+/* --- Charts --------------------------------------------------------------------------------- */
+
+.trends__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.trends__column {
+  min-width: 0;
+}
+
+.chart {
+  margin: 0;
+  min-width: 0;
+}
+
+.chart__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.6rem;
+}
+
+.chart__title {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.chart__unit {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.chart__plot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.chart__axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+/* Shrinks with its container: the viewBox scales, so no width forces the page wider. */
+.chart__svg {
+  width: 100%;
+  height: 140px;
+  min-width: 0;
+  display: block;
+}
+
+.chart__baseline {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.chart__bar {
+  fill: var(--accent);
+}
+
+.chart__range {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.35rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.chart__footnote {
+  margin: 0.6rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.chart__unavailable {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--canvas);
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+/* --- Tables --------------------------------------------------------------------------------- */
+
+/* The table scrolls inside this region, so a wide table never widens the page (AC-08.4). */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.data-table caption {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table thead th {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table--comparison {
+  min-width: 46rem;
+}
+
+.data-table__row--benchmark {
+  background: var(--canvas);
+  font-weight: 600;
+}
+
+.data-table__row--focused {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+.comparison__scope {
+  display: block;
+  font-weight: 600;
+}
+
+.comparison__scope-note {
+  display: block;
+  font-weight: 400;
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.comparison__empty,
+.attention__none {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.comparison__scope-list {
+  margin: 0.6rem 0 0;
+  padding-left: 1.2rem;
+}
+
+/* --- Attention ------------------------------------------------------------------------------ */
+
+.attention__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  gap: var(--gap);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.finding--highlighted {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.finding__body {
+  min-width: 0;
+}
+
+.finding__meta {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.finding__scope {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.finding__headline {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.finding__evidence,
+.finding__period {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.finding__period {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.finding__action {
+  min-width: 0;
+  text-align: right;
+}
+
+.finding__action-note {
+  margin: 0.3rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.attention__limits-lead {
+  font-weight: 600;
+}
+
+.attention__limit-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.8125rem;
+}
+
+.attention__limit-list li {
+  margin-bottom: 0.3rem;
+}
+
+.attention__limit-rule {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* --- Footer --------------------------------------------------------------------------------- */
+
+.page-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.page-footer p {
+  margin: 0;
+}
+
+/* --- Narrow screens ------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .page {
+    padding: 1rem 0.75rem;
+  }
+
+  .page-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-header__account {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .filters__group--reset {
+    margin-left: 0;
+  }
+
+  /* Both two-column layouts stack; neither has room for a second column on a phone. */
+  .funnel__layout,
+  .finding {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finding__action {
+    text-align: left;
+  }
+
+  .funnel__stage {
+    grid-template-columns: minmax(5rem, 1fr) minmax(0, 2fr) auto;
+    gap: 0.5rem;
+  }
+
+  .panel {
+    padding: 0.85rem 0.9rem 1rem;
+  }
+
+  .metric-value--headline {
+    font-size: 1.625rem;
+  }
+}
+

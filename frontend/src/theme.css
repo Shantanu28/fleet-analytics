@@ -1,0 +1,109 @@
+/*
+ * Shared design tokens, base reset and control primitives.
+ *
+ * Extracted so the sign-in screen and the dashboard cannot drift apart: they are the same product,
+ * and duplicating six hex values in two stylesheets is how a palette ends up half-changed.
+ */
+
+:root {
+  --ink: #14181a;
+  --ink-soft: #4c565b;
+  --ink-faint: #6b767c;
+  --line: #dfe4e6;
+  --line-strong: #c3ccd0;
+  --surface: #ffffff;
+  --canvas: #f6f8f8;
+  --accent: #0f7a5a;
+  --accent-strong: #0b6047;
+  --accent-soft: #e6f2ee;
+  --warn: #8a5a00;
+  --warn-soft: #fdf3e2;
+  --error: #98342a;
+  --error-soft: #fbeeec;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --radius: 6px;
+  --gap: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+:where(a, button, input, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.button {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--ink-faint);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.button--quiet {
+  background: transparent;
+}
+
+.input,
+.select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../App'
 import { SessionProvider, useSession } from '../auth/session'
+import { dashboard as dashboardFixture } from './dashboardFixtures'
 
 /**
  * Drives the session provider directly. The login form disables its button while a request is in
@@ -96,7 +97,119 @@ const beaconContext = {
 const unauthorised = jsonResponse(
   { type: 'urn:fleet:problem:unauthenticated', status: 401, detail: 'Authentication is required.' }, 401)
 
-beforeEach(() => { vi.stubGlobal('fetch', vi.fn()) })
+const CONTEXT_BY_TOKEN: Record<string, typeof acmeContext> = {
+  'tok-acme': acmeContext,
+  'tok-beacon': beaconContext,
+}
+
+/** Each tenant's own seat count, so an isolation assertion still discriminates on a number. */
+const LICENSED_SEATS_BY_TOKEN: Record<string, number> = { 'tok-acme': 2, 'tok-beacon': 1 }
+
+/**
+ * A dashboard response consistent with that tenant's coverage: the last complete day is
+ * `dataThrough − 1`, and the default range is the 30 days ending there.
+ */
+function dashboardFor(token: string, licensedSeats?: number) {
+  const context = CONTEXT_BY_TOKEN[token] ?? acmeContext
+  const through = Date.parse(context.coverage.dataThrough)
+  const day = 24 * 60 * 60 * 1000
+  const iso = (at: number) => new Date(at).toISOString().slice(0, 10)
+  const to = iso(through - day)
+  const from = iso(through - 30 * day)
+  return {
+    ...dashboardFixture,
+    coverage: context.coverage,
+    selection: {
+      ...dashboardFixture.selection,
+      from,
+      to,
+      startInclusive: `${from}T00:00:00Z`,
+      endExclusive: context.coverage.dataThrough,
+      previousFrom: iso(through - 60 * day),
+      previousTo: iso(through - 31 * day),
+      observationCutoff: to,
+    },
+    kpis: {
+      ...dashboardFixture.kpis,
+      seats: {
+        ...dashboardFixture.kpis.seats,
+        licensedSeats: licensedSeats ?? LICENSED_SEATS_BY_TOKEN[token] ?? 2,
+      },
+    },
+    trends: {
+      mergedPrsPerDay: { state: 'ok' as const, unit: 'count' as const, points: [{ date: to, value: 1 }] },
+      spendPerDay: { state: 'ok' as const, unit: 'usdCents' as const, points: [{ date: to, spendCents: 150 }] },
+    },
+  }
+}
+
+type Handlers = {
+  login?: (call: number) => Response | Promise<Response>
+  context?: (token: string, call: number) => Response | Promise<Response>
+  dashboard?: (token: string, call: number) => Response | Promise<Response>
+}
+
+/**
+ * Routes by URL rather than by call order.
+ *
+ * The authenticated page issues two requests, and the dashboard one is re-issued once coverage
+ * resolves the default dates. An ordered `mockResolvedValueOnce` chain would hand the wrong body to
+ * the wrong endpoint the moment that count changed, so tests state what each endpoint answers and
+ * stay indifferent to how many times it is asked.
+ */
+function routeApi(handlers: Handlers = {}) {
+  const calls = { login: 0, context: 0, dashboard: 0 }
+  vi.mocked(fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization ?? ''
+    const token = authorization.replace(/^Bearer /, '')
+
+    if (url.includes('/auth/login')) {
+      calls.login += 1
+      return Promise.resolve(handlers.login?.(calls.login) ?? jsonResponse(ACME_ADMIN))
+    }
+    if (url.includes('/analytics/context')) {
+      calls.context += 1
+      const routed = handlers.context?.(token, calls.context)
+      if (routed !== undefined) return Promise.resolve(routed)
+      const body = CONTEXT_BY_TOKEN[token]
+      return Promise.resolve(body ? jsonResponse(body) : unauthorised)
+    }
+    if (url.includes('/analytics/dashboard')) {
+      calls.dashboard += 1
+      const routed = handlers.dashboard?.(token, calls.dashboard)
+      if (routed !== undefined) return Promise.resolve(routed)
+      return Promise.resolve(
+        CONTEXT_BY_TOKEN[token] ? jsonResponse(dashboardFor(token)) : unauthorised,
+      )
+    }
+    return Promise.resolve(unauthorised)
+  })
+  return calls
+}
+
+/** The team and repository selects are where a tenant's own scopes are now offered. */
+function filterOption(name: RegExp, option: string) {
+  return within(screen.getByRole('combobox', { name })).getByRole('option', { name: option })
+}
+
+/**
+ * The seats card, found by its visible heading.
+ *
+ * Scoped rather than matched on a bare number: figures like "2" appear in several cards, and an
+ * unscoped query would pass or fail for reasons unrelated to seats.
+ */
+function seatsCard(): HTMLElement {
+  const card = screen.getByRole('heading', { name: /active seats/i }).closest('article')
+  if (card === null) throw new Error('seats card not found')
+  return card
+}
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn())
+  // The applied selection lives in the URL, so each test starts from a clean history entry.
+  window.history.replaceState(null, '', '/')
+})
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 async function signIn(user: ReturnType<typeof userEvent.setup>, username: string, password: string) {
@@ -110,29 +223,29 @@ async function signIn(user: ReturnType<typeof userEvent.setup>, username: string
 describe('session', () => {
   it('signs in and shows the authenticated organisation', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
+    routeApi()
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
 
     expect(await screen.findByText('Acme Engineering')).toBeVisible()
-    expect(screen.getByText(/2 licensed seats/i)).toBeVisible()
+    // The organisation's own teams and repositories are now the filter options.
+    expect(filterOption(/team/i, 'Acme Platform')).toBeInTheDocument()
+    expect(filterOption(/repository/i, 'acme-api')).toBeInTheDocument()
+    expect(seatsCard()).toHaveTextContent('2 / 2')              // active of licensed
   })
 
   /** AC-01.3: the cutoff is dataThrough − 1 day, never dataThrough itself. */
   it('states the reporting cutoff as the last complete UTC day', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
+    routeApi()
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
 
-    expect(await screen.findByText(/data complete through 2026-02-28/i)).toBeVisible()
+    expect(await screen.findByText(/complete through 28 Feb 2026 \(UTC\)/i)).toBeVisible()
     expect(screen.queryByText(/2026-03-01/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/1 Mar 2026/)).not.toBeInTheDocument()
   })
 
   it('shows a sanitised message and no token on invalid credentials', async () => {
@@ -149,16 +262,14 @@ describe('session', () => {
 
   it('does not retry an authentication failure', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValue(unauthorised)
+    routeApi({ context: () => unauthorised, dashboard: () => unauthorised })
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
     await screen.findByLabelText(/username/i)                   // the 401 returned us to login
 
+    // Whatever the authenticated page asked for, it asked once: no attempt was retried.
     const callsSoFar = vi.mocked(fetch).mock.calls.length
-    expect(callsSoFar).toBe(2)                                  // login + one context attempt
 
     // A retry would be scheduled on a timer. Switching to a controlled clock only now — after the
     // DOM has settled — lets us run well past any backoff without polling a stubbed timer.
@@ -171,9 +282,7 @@ describe('session', () => {
 
   it('logout clears protected data and states that the token is not revoked', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
+    routeApi()
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
@@ -189,9 +298,7 @@ describe('session', () => {
   it('a context response arriving after logout never repopulates the view', async () => {
     const user = userEvent.setup()
     const late = deferred<Response>()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockReturnValueOnce(late.promise as unknown as Promise<Response>)
+    routeApi({ context: () => late.promise })
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
@@ -207,11 +314,7 @@ describe('session', () => {
   /** Two different people with the SAME role: isolation must not rest on role alone. */
   it('switching to a different tenant with the same role shows no previous data', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
-      .mockResolvedValueOnce(jsonResponse(BEACON_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(beaconContext))
+    routeApi({ login: (call) => jsonResponse(call === 1 ? ACME_ADMIN : BEACON_ADMIN) })
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
@@ -221,9 +324,9 @@ describe('session', () => {
     await signIn(user, 'beacon.admin', 'secret-b')
 
     expect(await screen.findByText('Beacon Labs')).toBeVisible()
-    expect(screen.getByText('Beacon Core')).toBeVisible()
-    expect(screen.getByText('beacon-web')).toBeVisible()
-    expect(screen.getByText(/1 licensed seat$/i)).toBeVisible()
+    expect(filterOption(/team/i, 'Beacon Core')).toBeInTheDocument()
+    expect(filterOption(/repository/i, 'beacon-web')).toBeInTheDocument()
+    expect(seatsCard()).toHaveTextContent('2 / 1')              // Beacon's own licensed seats
     expect(screen.queryByText('Acme Engineering')).not.toBeInTheDocument()
     expect(screen.queryByText('Acme Platform')).not.toBeInTheDocument()
     expect(screen.queryByText('acme-api')).not.toBeInTheDocument()
@@ -232,23 +335,25 @@ describe('session', () => {
   /** The same person signing back in must not see the previous session's cached answer. */
   it('a second session for the same user and role refetches rather than reusing the cache', async () => {
     const user = userEvent.setup()
-    const changed = { ...acmeContext, licensedSeats: 7 }
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(changed))
+    // The same person, the same role, but the dataset has changed underneath them. A reused cache
+    // entry would still show 2.
+    const calls = routeApi({
+      dashboard: (token, call) => jsonResponse(dashboardFor(token, call <= 2 ? 2 : 7)),
+    })
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
-    expect(await screen.findByText(/2 licensed seats/i)).toBeVisible()
+    await waitFor(() => expect(seatsCard()).toHaveTextContent('2 / 2'))
 
     await user.click(screen.getByRole('button', { name: /sign out/i }))
     await screen.findByLabelText(/username/i)
     await signIn(user, 'acme.admin', 'secret-a')
 
-    expect(await screen.findByText(/7 licensed seats/i)).toBeVisible()
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(4)
+    await waitFor(() => expect(seatsCard()).toHaveTextContent('2 / 7'))
+    expect(seatsCard()).not.toHaveTextContent('2 / 2')
+    // Both endpoints were asked again rather than answered from the previous session's cache.
+    expect(calls.context).toBe(2)
+    expect(calls.dashboard).toBeGreaterThan(2)
   })
 
   /** A slow login that resolves after logout must not silently restore a session. */
@@ -353,11 +458,13 @@ describe('session', () => {
   it('a late 401 from an old session does not end the newer session', async () => {
     const user = userEvent.setup()
     const staleContext = deferred<Response>()
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockReturnValueOnce(staleContext.promise as unknown as Promise<Response>)  // never resolves yet
-      .mockResolvedValueOnce(jsonResponse(BEACON_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(beaconContext))
+    routeApi({
+      login: (call) => jsonResponse(call === 1 ? ACME_ADMIN : BEACON_ADMIN),
+      // Acme's context never resolves until the test releases it, long after that session ended.
+      context: (token) => (token === 'tok-acme' ? staleContext.promise : jsonResponse(beaconContext)),
+      dashboard: (token) =>
+        token === 'tok-acme' ? new Promise<Response>(() => {}) : jsonResponse(dashboardFor(token)),
+    })
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
@@ -381,15 +488,18 @@ describe('session', () => {
     const user = userEvent.setup()
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
 
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(ACME_ADMIN))
-      .mockResolvedValueOnce(jsonResponse(acmeContext))
-      .mockResolvedValue(unauthorised)                      // the token is no longer accepted
+    let accepted = true
+    routeApi({
+      context: (token) => (accepted && token === 'tok-acme' ? jsonResponse(acmeContext) : unauthorised),
+      dashboard: (token) =>
+        accepted && token === 'tok-acme' ? jsonResponse(dashboardFor(token)) : unauthorised,
+    })
 
     render(<App client={client} />)
     await signIn(user, 'acme.admin', 'secret-a')
     expect(await screen.findByText('Acme Engineering')).toBeVisible()
 
+    accepted = false                                        // the token is no longer accepted
     await act(async () => { await client.invalidateQueries() })
 
     await waitFor(() => expect(screen.getByLabelText(/username/i)).toBeVisible())
