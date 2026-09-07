@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, fetchContext, login } from '../api/client'
+import { ApiError, fetchContext, login, logout } from '../api/client'
 
 const validContext = {
   organisationName: 'Acme Engineering',
@@ -25,6 +25,15 @@ beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
 afterEach(() => vi.unstubAllGlobals())
 
 describe('API client', () => {
+  it.each([204, 401])('logout accepts %i without requiring a JSON body', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }))
+    await expect(logout('tok')).resolves.toBeUndefined()
+  })
+
+  it('logout does not mistake an unexpected success page for confirmed revocation', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response('<html>Proxy error</html>', { status: 200 }))
+    await expect(logout('tok')).rejects.toBeInstanceOf(ApiError)
+  })
   it('accepts a well-formed success body', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response(validContext))
     await expect(fetchContext('tok')).resolves.toMatchObject({ organisationName: 'Acme Engineering' })

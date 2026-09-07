@@ -35,8 +35,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(RsaKeyProvider keys, JwtProperties properties, Clock clock) {
-        return JwtDecoderFactory.create(keys, properties, clock);
+    JwtDecoder jwtDecoder(RsaKeyProvider keys, JwtProperties properties, Clock clock,
+            TokenRevocationService revocations) {
+        JwtDecoder cryptographic = JwtDecoderFactory.create(keys, properties, clock);
+        return token -> revocations.requireActive(cryptographic.decode(token));
     }
 
     @Bean

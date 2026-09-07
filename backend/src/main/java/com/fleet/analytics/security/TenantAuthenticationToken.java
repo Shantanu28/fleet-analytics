@@ -25,7 +25,7 @@ public final class TenantAuthenticationToken extends AbstractAuthenticationToken
     }
 
     @Override
-    public Object getCredentials() {
+    public Jwt getCredentials() {
         return token;
     }
 

@@ -153,6 +153,8 @@ class BearerTokenHttpTest extends IntegrationTestBase {
     void missingOrMalformedRequiredClaimsAreRejected() throws Exception {
         assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.subject(null))));
         assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.subject("not-a-uuid"))));
+        assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.jwtID(null))));
+        assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.jwtID("not-a-uuid"))));
         assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.claim("org", null))));
         assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.claim("org", "nope"))));
         assertSanitisedUnauthorised(context("Bearer " + signed(c -> c.claim("role", null))));
@@ -164,6 +166,7 @@ class BearerTokenHttpTest extends IntegrationTestBase {
     private JWTClaimsSet claims(Consumer<JWTClaimsSet.Builder> mutate) {
         Instant now = clock.instant();
         JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
+                .jwtID(UUID.randomUUID().toString())
                 .subject(USER.toString())
                 .issuer(properties.issuer())
                 .audience(properties.audience())

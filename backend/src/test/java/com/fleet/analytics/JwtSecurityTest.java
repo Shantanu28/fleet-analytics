@@ -56,6 +56,9 @@ class JwtSecurityTest {
         assertThat(jwt.getClaimAsString("role")).isEqualTo("ADMIN");
         assertThat(jwt.getIssuedAt()).isEqualTo(NOW);
         assertThat(jwt.getExpiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
+        // Fixed clock, same user: logins must still be independently revocable.
+        Jwt anotherLogin = decoder.decode(issuer.issue(USER, ORG, "ADMIN"));
+        assertThat(anotherLogin.getId()).isNotEqualTo(jwt.getId());
     }
 
     @Test
@@ -110,6 +113,10 @@ class JwtSecurityTest {
 
     @Test
     void rejectsMissingOrMalformedIdentityClaims() {
+        assertThatThrownBy(() -> decoder.decode(handCrafted(c -> c.jwtID(null))))
+                .isInstanceOf(JwtException.class);
+        assertThatThrownBy(() -> decoder.decode(handCrafted(c -> c.jwtID("not-a-uuid"))))
+                .isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> decoder.decode(handCrafted(c -> c.subject(null))))
                 .isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> decoder.decode(handCrafted(c -> c.subject("not-a-uuid"))))
@@ -138,6 +145,7 @@ class JwtSecurityTest {
 
     private JWTClaimsSet.Builder baseClaims() {
         return new JWTClaimsSet.Builder()
+                .jwtID(UUID.randomUUID().toString())
                 .subject(USER.toString())
                 .issuer(props.issuer())
                 .audience(props.audience())

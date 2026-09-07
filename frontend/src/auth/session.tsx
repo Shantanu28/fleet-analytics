@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { login as loginRequest, type Role } from '../api/client'
+import { login as loginRequest, logout as logoutRequest, type Role } from '../api/client'
 
 /**
  * The token lives here, in memory only — never localStorage, a URL or a query key.
@@ -20,6 +20,7 @@ export type Session = {
 
 type SessionContextValue = {
   session: Session | null
+  signOutNotice: string | null
   signIn: (username: string, password: string) => Promise<void>
   signOut: () => void
   /** Ends the session only if `generation` is still the current one. */
@@ -30,6 +31,7 @@ const SessionContext = createContext<SessionContextValue | null>(null)
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
+  const [signOutNotice, setSignOutNotice] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   // Mirrors `session` synchronously, so callbacks never read a stale render's value.
@@ -47,7 +49,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
-  const signOut = useCallback(() => {
+  const clearSession = useCallback(() => {
     attemptRef.current?.controller.abort()
     attemptRef.current = null
     // Burn the generation so a login that started before this sign-out can never apply,
@@ -57,8 +59,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearCaches()
   }, [applySession, clearCaches])
 
+  const signOut = useCallback(() => {
+    const token = sessionRef.current?.token
+    clearSession()
+    const generation = generationRef.current
+    setSignOutNotice(token ? 'Signing out on the server…' : null)
+    if (!token) return
+    // Local cleanup never waits for the network. A late result cannot affect a newer login.
+    void logoutRequest(token).then(
+      () => {
+        if (generationRef.current === generation) setSignOutNotice(null)
+      },
+      () => {
+        if (generationRef.current === generation) {
+          setSignOutNotice('Signed out in this browser, but server sign-out could not be confirmed. The token may remain valid until it expires.')
+        }
+      },
+    )
+  }, [clearSession])
+
   const signIn = useCallback(
     async (username: string, password: string) => {
+      setSignOutNotice(null)
       // A newer attempt supersedes any older one, which is cancelled rather than left to land.
       attemptRef.current?.controller.abort()
       const controller = new AbortController()
@@ -101,14 +123,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOutIfCurrent = useCallback(
     (generation: number) => {
       if (sessionRef.current?.generation !== generation) return
-      signOut()
+      clearSession()
     },
-    [signOut],
+    [clearSession],
   )
 
   const value = useMemo(
-    () => ({ session, signIn, signOut, signOutIfCurrent }),
-    [session, signIn, signOut, signOutIfCurrent],
+    () => ({ session, signOutNotice, signIn, signOut, signOutIfCurrent }),
+    [session, signOutNotice, signIn, signOut, signOutIfCurrent],
   )
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

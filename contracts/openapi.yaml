@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Fleet Analytics API
-  version: 0.4.0
+  version: 0.5.0
   description: >
-    Login, the tenant-scoped analytics context, and the dashboard selection response.
+    Login, token revocation on logout, the tenant-scoped context, and the dashboard response.
     Organisation scope comes from the verified token; no endpoint accepts an organisation parameter.
 servers:
   - url: /api/v1
@@ -43,12 +43,44 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /auth/logout:
+    post:
+      summary: Revoke the presented access token
+      description: >
+        Takes no body. Returns only after revocation is committed. Other tokens are unaffected.
+        Reusing the token, including repeating logout, returns 401. Requests authenticated before
+        revocation may finish. No refresh tokens or logout-all-sessions operation are provided.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Token revoked; no response body
+        '401':
+          description: Missing, invalid, expired or already-revoked bearer
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500':
+          description: Revocation could not be committed; do not assume logout succeeded
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: Token status could not be checked; access is denied until the store recovers
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
   /analytics/context:
     get:
       summary: Filter options and identity for the authenticated organisation
       security:
         - bearerAuth: []
       responses:
+        '503':
+          description: Authentication status temporarily unavailable; no protected data returned
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '200':
           description: Context for the caller's own organisation
           content:
@@ -136,6 +168,11 @@ paths:
               schema: { $ref: '#/components/schemas/Problem' }
         '500':
           description: Required metadata absent, or an unexpected fault. No values are invented.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: Authentication status temporarily unavailable; no protected data returned
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }

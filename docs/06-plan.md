@@ -13,14 +13,14 @@ This page records that sequence; the [requirements](02-requirements.md) and
 | M3 — Analytics backend | Domain schema, dashboard API, exact metric calculations and findings | Committed: `22ec70c`, `8c229ef`                                                  |
 | M4 — Demo data | Deterministic two-tenant dataset and safe installer | Committed: `74a22f0`                                                             |
 | M5 — Dashboard | Filters, cards, charts, funnel, comparisons, findings and styled login | Committed: `8ac9296`                                                             |
-| M6 — Delivery | Chromium journeys, isolated runner, CI configuration and documentation | Complete — implementated and human review in pending; plus awaiting human commit |
+| M6 — Delivery | Chromium journeys, isolated runner, CI configuration and documentation | Committed: `a992b12`; keyboard-readiness fix: `96419ba` |
 
 The human reviews each milestone and stages/commits manually. Completion of implementation does
 not imply a deployed service, successful remote CI or production readiness.
 
 ## Checks and evidence
 
-Review run on 7 September 2026:
+M6 review run on 7 September 2026 (before the logout follow-up):
 
 | Check | Evidence |
 |---|---|
@@ -30,7 +30,7 @@ Review run on 7 September 2026:
 | Runner cleanup regression | Failed before the fix; passed after it. A child ignoring SIGTERM is stopped even after its parent exits |
 | Diagnostics regression | Deliberately failed browser assertion; public console/summary excludes the synthetic restricted marker |
 | Backend suite | Independently rerun: 435 tests passed, 0 failures, 0 errors, 0 skipped |
-| GitHub CI | Configured, not yet run/verified remotely |
+| GitHub CI | Initial run failed at keyboard navigation. Readiness regression fixed in `96419ba`; 27 journeys passed against Linux Chromium locally. Remote rerun not yet verified |
 | Clean checkout | Claude reported a working-tree copy with isolated Compose ports; not a post-commit git clone |
 
 Re-run checks after changes. Historical counts are evidence from specific runs, not permanent
@@ -62,19 +62,37 @@ The browser runner supplies both channels automatically.
   assertion reports safe to publish.
 - The README browser-install command now returns to the repository root before `make e2e`.
 
+## Logout follow-up
+
+Single-token server logout replaces browser-only sign-out. PostgreSQL stores the signed token
+ID; the browser clears protected state immediately and warns if server logout cannot be confirmed.
+Other logins are unaffected. See [authentication](04-technical-spec.md#51-authentication-and-redaction).
+
+Review caught a real bypass in the first draft: hashing the JWT text treated alternate valid
+signature encodings as different tokens. An HTTP regression reproduced both variants returning
+200 after logout. Required signed UUID token IDs now make both return 401. The boundary cleanup
+test also uses a different token to trigger deletion, so reinsertion cannot hide an expiry bug.
+
+Final local verification on 7 September 2026:
+
+| Check | Result |
+|---|---|
+| `make test` against a freshly migrated isolated build database | 441 backend tests and 210 frontend tests passed; type-check and production build passed |
+| Fixed-clock token uniqueness assertion added to `JwtSecurityTest` | All 7 tests in that class rerun and passed |
+| `make e2e` on a fresh disposable database | All 27 Chromium journeys passed, including real logout and rejected token replay; runner cleaned up its resources |
+| Independent review and document checks | Encoding bypass corrected and re-reviewed; no remaining actionable findings; diff whitespace and local link targets checked |
+
+No legacy-token fallback, new dependency, refresh flow or second authentication mechanism was added.
+This follow-up is not yet committed or verified in remote CI.
+
 ## Remaining release checks
 
-- Human commit of M6 and these corrections.
-- First successful GitHub CI run and a true clean-clone run after commit.
-- Separate performance follow-up after the M6 commit: collect PostgreSQL planner statistics
-  after successful demo seeding, then verify on a fresh database and remeasure dashboard latency.
-  Diagnostics confirmed missing statistics caused a poor funnel-query plan; the earlier
-  10.6-second cold request was not reproduced and remains unexplained.
 - A production deployment and security/accessibility/capacity audits remain outside this assignment.
 
 ## Scope boundary
 
-Do not expand this milestone with ingestion, Kafka, ClickHouse, Redis, rollups, refresh/revocation,
+Single-token server logout is an approved post-M6 extension. Do not expand it with
+ingestion, Kafka, ClickHouse, Redis, rollups, refresh tokens, logout-all-sessions,
 SSO, per-user analytics, exports or a custom dashboard builder.
 [Deferred product work](00-research.md#10-deferred-and-cut) and
 [production validation](03-architecture.md#10-production-validation-before-launch) explain the next steps.

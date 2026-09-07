@@ -24,13 +24,19 @@ SQL population selection is tested separately in [Backend integration and API/fu
 | Database integration | Flyway migrations, constraints, tenant-safe relationships and jOOQ queries work against PostgreSQL |
 | Query correctness | Eligibility, timestamp windows, filters, pooled totals, cohort membership and reporting coverage match the metrics contract |
 | Read consistency | Concurrent writes do not produce conflicting sections within one dashboard response |
-| API/functional | Login, authenticated context, dashboard requests, defaults, validation and error responses behave as specified |
+| API/functional | Login/logout, authenticated context, dashboard requests, defaults, validation and error responses behave as specified |
 | Security | Invalid tokens fail; tenant data cannot mix; VIEWER responses omit restricted domains and internal identifiers across the entire body |
 | HTTP contract | Success and problem responses conform to the authoritative OpenAPI document |
 
 High-risk fixtures include a task with multiple runs/usage records that must not multiply costs, a merge outside the task-creation period, incomplete source data that must not become zero, and two organisations with disjoint identities. Verify isolation on returned data, not only rejected filter IDs.
 
 API/functional coverage may live in integration suites; it does not require another framework or duplicate tests.
+
+Logout checks use the real database: replay (including alternate signature encodings) is rejected
+after revocation, other logins survive, and expiry cleanup respects clock skew. Recreating the service checks shared-store behaviour,
+not an actual multi-process restart. An unavailable store denies access; a rejected database
+write must not report successful logout. Both errors are sanitised. Browser tests also replay the token after a real logout response; frontend
+tests cover network/server failures and late logout responses after another login.
 
 ## 4. Frontend unit and component tests
 
@@ -51,7 +57,7 @@ Mock the HTTP boundary, not component internals. Give each test an isolated TanS
 
 Journeys assert customer-visible outcomes through accessible locators and retrying assertions, never fixed waits, and pair what the page says with what the server was actually asked. Scopes are resolved from the API by identity, because display names are not unique across organisations. Recoverable-failure and unauthorized-response cases are produced by intercepting responses in the browser and are labelled as injected; the application has no test hook, and an injected 401 is not evidence of real token expiry. Accessibility checks here are targeted — keyboard order, accessible names, visible focus, chart text alternatives and the 375px layout — not a conformance audit.
 
-- **Access and identity:** sign in as ADMIN/VIEWER, verify role-appropriate evidence, switch organisations, and check logout/expiry without stale tenant data.
+- **Access and identity:** sign in as ADMIN/VIEWER, verify role-appropriate evidence, switch organisations, and check logout without stale tenant data. Replay the logged-out bearer against the API and require 401. Expired-session UI handling uses an injected 401; actual expiry validation belongs to backend tests.
 - **Filtering:** change date/team/repository/grouping, reset, and restore URL state through browser history and reload. With an in-memory token, reload requires sign-in before restoring the selected view.
 - **Investigation:** follow budget and repository-failure findings, verify the intended filter changes, and return to the starting view.
 - **Recovery and accessibility:** exercise empty/unavailable states and a controlled recoverable failure; verify keyboard use, chart text alternatives and the 375px layout.

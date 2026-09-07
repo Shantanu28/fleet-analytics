@@ -145,6 +145,7 @@ function dashboardFor(token: string, licensedSeats?: number) {
 
 type Handlers = {
   login?: (call: number) => Response | Promise<Response>
+  logout?: (token: string, init?: RequestInit) => Response | Promise<Response>
   context?: (token: string, call: number) => Response | Promise<Response>
   dashboard?: (token: string, call: number) => Response | Promise<Response>
 }
@@ -167,6 +168,9 @@ function routeApi(handlers: Handlers = {}) {
     if (url.includes('/auth/login')) {
       calls.login += 1
       return Promise.resolve(handlers.login?.(calls.login) ?? jsonResponse(ACME_ADMIN))
+    }
+    if (url.includes('/auth/logout')) {
+      return Promise.resolve(handlers.logout?.(token, init) ?? new Response(null, { status: 204 }))
     }
     if (url.includes('/analytics/context')) {
       calls.context += 1
@@ -221,6 +225,67 @@ async function signIn(user: ReturnType<typeof userEvent.setup>, username: string
 }
 
 describe('session', () => {
+  it('revokes the current bearer while immediately clearing the page and cache', async () => {
+    const user = userEvent.setup()
+    const pending = deferred<Response>()
+    const logout = vi.fn((_token: string, _init?: RequestInit) => pending.promise)
+    routeApi({ logout })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<App client={client} />)
+    await signIn(user, 'acme.admin', 'secret-a')
+    expect(await screen.findByText('Acme Engineering')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
+    expect(screen.getByLabelText(/username/i)).toBeVisible()
+    expect(screen.queryByText('Acme Engineering')).not.toBeInTheDocument()
+    expect(client.getQueryCache().getAll()).toHaveLength(0)
+    expect(logout).toHaveBeenCalledWith('tok-acme', expect.objectContaining({ method: 'POST' }))
+    await act(async () => { pending.resolve(new Response(null, { status: 204 })) })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each([500, 503])('warns when server logout fails with %i without restoring local data', async (status) => {
+    const user = userEvent.setup()
+    routeApi({ logout: () => jsonResponse({ detail: 'restricted-server-details' }, status) })
+    render(<App />)
+    await signIn(user, 'acme.admin', 'secret-a')
+    await screen.findByText('Acme Engineering')
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/server sign-out could not be confirmed/i)
+    expect(alert).not.toHaveTextContent('restricted-server-details')
+    expect(screen.queryByText('Acme Engineering')).not.toBeInTheDocument()
+  })
+
+  it('an old logout failure cannot disturb a new login', async () => {
+    const user = userEvent.setup()
+    const pending = deferred<Response>()
+    routeApi({
+      login: (call) => jsonResponse(call === 1 ? ACME_ADMIN : BEACON_ADMIN),
+      logout: () => pending.promise,
+    })
+    render(<App />)
+    await signIn(user, 'acme.admin', 'secret-a')
+    await screen.findByText('Acme Engineering')
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
+    await signIn(user, 'beacon.admin', 'secret-b')
+    await screen.findByText('Beacon Labs')
+    await act(async () => { pending.resolve(jsonResponse({}, 500)) })
+    expect(screen.getByText('Beacon Labs')).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('warns on a network failure during logout while keeping the browser signed out', async () => {
+    const user = userEvent.setup()
+    routeApi({ logout: () => Promise.reject(new TypeError('Network failure')) })
+    render(<App />)
+    await signIn(user, 'acme.admin', 'secret-a')
+    await screen.findByText('Acme Engineering')
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/server sign-out could not be confirmed/i)
+    expect(screen.getByLabelText(/username/i)).toBeVisible()
+    expect(screen.queryByText('Acme Engineering')).not.toBeInTheDocument()
+  })
+
   it('signs in and shows the authenticated organisation', async () => {
     const user = userEvent.setup()
     routeApi()
@@ -280,14 +345,14 @@ describe('session', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(callsSoFar)
   })
 
-  it('logout clears protected data and states that the token is not revoked', async () => {
+  it('logout clears protected data and explains server-side revocation', async () => {
     const user = userEvent.setup()
     routeApi()
 
     render(<App />)
     await signIn(user, 'acme.admin', 'secret-a')
     await screen.findByText('Acme Engineering')
-    expect(screen.getByText(/does not revoke/i)).toBeVisible()
+    expect(screen.getByText(/revokes its token on the server/i)).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: /sign out/i }))
 

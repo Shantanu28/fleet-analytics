@@ -1,5 +1,6 @@
 package com.fleet.analytics.web.error;
 
+import com.fleet.analytics.security.RevocationUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -33,6 +34,12 @@ public class SanitisedBearerEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException exception) throws IOException {
+        if (exception instanceof RevocationUnavailableException) {
+            problems.write(response, HttpStatus.SERVICE_UNAVAILABLE,
+                    ProblemTypes.AUTHENTICATION_UNAVAILABLE,
+                    "Authentication is temporarily unavailable.");
+            return;
+        }
         delegate.commence(request, response,
                 new InsufficientAuthenticationException("Authentication is required."));
         problems.write(response, HttpStatus.UNAUTHORIZED,

@@ -42,7 +42,7 @@ These are public demo credentials for synthetic data only. Both roles see their 
 
 Demo accounts require both the `demo` profile and `FLEET_DEMO_ACCOUNTS=true`. The `dev` profile supplies ephemeral JWT keys; configured PEM keys take precedence and invalid configuration fails startup. The separate finding-ID secret is always required. [Authentication details](docs/04-technical-spec.md#51-authentication-and-redaction).
 
-Sign-out clears the browser's in-memory token and cached data; it does **not** revoke an issued JWT. Tokens expire after 15 minutes, with the configured clock-skew tolerance. Reloading requires login again, then restores the URL's filters.
+Sign-out calls the logout API to revoke that token and immediately clears the browser's session and cached data. Other logins are unaffected. If server sign-out cannot be confirmed, the login page warns you. Tokens otherwise expire after 15 minutes, plus the configured clock-skew tolerance. Reloading loses the local session without calling logout; login is required again, then the URL's filters are restored.
 
 ## What to explore
 
@@ -82,7 +82,7 @@ Only an allowlisted browser summary is uploaded. Raw local `frontend/test-result
 | Sequential queries in one repeatable-read transaction | Consolidated SQL or parallel queries with a shared snapshot | A straightforward, tested consistency boundary without cross-connection snapshot coordination |
 | Query-time metrics over source facts | Precomputed reporting tables | Verify and evolve formulas against real records before adding refresh/backfill logic |
 | Java and jOOQ | Node backend or ORM-based persistence | Familiar backend stack and explicit, typed SQL; code generation requires a migrated database |
-| In-memory JWT | Server-side session or persistent browser token | Small demo login flow; reload requires login and sign-out cannot revoke issued tokens |
+| In-memory JWT with database-backed logout | Opaque server session | Keeps the signed-token API and supports revocation; requires a token-status lookup per authenticated request and login after reload |
 
 One endpoint does **not** require sequential SQL: the HTTP interface can stay the same while its
 query implementation evolves. Today the response waits for all section queries, so latency still

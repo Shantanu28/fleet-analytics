@@ -1,7 +1,7 @@
 /**
  * Access and identity: signing in, signing out, and what survives a reload.
  *
- * The token lives in memory only, so a reload is a real sign-out — that is the design, and this
+ * The token lives in memory only, so a reload loses the local session (without revocation). This
  * proves the selected view is restored from the URL afterwards rather than lost.
  */
 import { expect, test } from './support/fixtures'
@@ -22,12 +22,23 @@ test('signing in shows the organisation, the demo framing and the reporting cuto
   await expect(dashboardSections(page).kpis).toBeVisible()
 })
 
-test('signing out leaves no tenant data on the page', async ({ page, scopes }) => {
+test('signing out clears tenant data and the server rejects reuse of that bearer', async ({ page, scopes }) => {
   await openDashboard(page, NORTHSTAR_ADMIN)
   const teamName = scopes.budgetedTeam.name
   await expect(dashboardSections(page).comparison).toContainText(teamName)
 
+  const logoutResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/v1/auth/logout') && response.request().method() === 'POST')
   await signOut(page)
+  const logout = await logoutResponse
+  expect(logout.status()).toBe(204)
+  // Keep the token in memory only; never attach it to reports or assertion messages.
+  const authorization = await logout.request().headerValue('authorization')
+  if (!authorization) throw new Error('Logout did not send bearer authentication')
+  const replay = await page.request.get('/api/v1/analytics/context', {
+    headers: { Authorization: authorization },
+  })
+  expect(replay.status()).toBe(401)
 
   await expect(page.getByLabel('Username', { exact: true })).toBeVisible()
   const body = page.locator('body')

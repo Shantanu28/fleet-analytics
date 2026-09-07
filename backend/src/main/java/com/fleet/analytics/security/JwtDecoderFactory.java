@@ -50,6 +50,7 @@ public final class JwtDecoderFactory {
                         JwtClaimNames.AUD, aud -> aud != null && aud.contains(properties.audience())),
                 new JwtClaimValidator<Instant>(JwtClaimNames.EXP, Objects::nonNull),
                 new JwtClaimValidator<Instant>(JwtClaimNames.IAT, Objects::nonNull),
+                new JwtClaimValidator<String>(JwtClaimNames.JTI, JwtDecoderFactory::isUuid),
                 new JwtClaimValidator<String>(JwtClaimNames.SUB, JwtDecoderFactory::isUuid),
                 new JwtClaimValidator<String>(TokenClaims.ORGANISATION, JwtDecoderFactory::isUuid),
                 new JwtClaimValidator<String>(

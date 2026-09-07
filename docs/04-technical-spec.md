@@ -68,7 +68,7 @@ Task status and run status are separate. The schema permits retries, but demo da
 
 A PR's `terminal_state` and `terminal_at` are both null while open. For merged or closed-unmerged PRs, `terminal_at` means the contract's `merged_at` or `closed_at`, respectively. This null means non-terminal, not missing-source data.
 
-The [schema reference](reference/prototype-schema.md) preserves column definitions, tenant-safe foreign keys, lifecycle constraints, source dependencies and index guidance. Migrations V1–V4 implement the schema; the reference explains its constraints without replacing the executable DDL.
+The [schema reference](reference/prototype-schema.md) preserves column definitions, tenant-safe foreign keys, lifecycle constraints, source dependencies and index guidance. Migrations V1–V4 implement the business schema; V5 adds token revocation. The reference explains constraints without replacing executable DDL.
 
 ## 4. Request and calculation flow
 
@@ -91,11 +91,12 @@ Use exact integer/decimal arithmetic and round only for display. PostgreSQL `sum
 
 ## 5. API contract
 
-The [OpenAPI document](../contracts/openapi.yaml) defines the implemented login, context and dashboard endpoints.
+The [OpenAPI document](../contracts/openapi.yaml) defines the implemented login, logout, context and dashboard endpoints.
 
 | Endpoint | Purpose / status |
 |---|---|
 | `POST /api/v1/auth/login` | Credentials → access token and identity; implemented |
+| `POST /api/v1/auth/logout` | Revoke the presented token; 204 after commit, no body; implemented |
 | `GET /api/v1/analytics/context` | Organisation, filters, coverage, seats and role; implemented |
 | `GET /api/v1/analytics/dashboard` | All dashboard sections for one selection; implemented |
 
@@ -110,11 +111,14 @@ Use sanitised `application/problem+json` errors: invalid dates or unknown/foreig
 ### 5.1 Authentication and redaction
 
 - Normalise globally unique usernames by trimming/lowercasing. Login accepts username/password, not organisation. Resolve tenant and role from the verified identity; team filters are analytical filters, not permission boundaries.
-- Issue 15-minute RS256 JWTs. Spring Security restricts the algorithm and validates signature, issuer, audience, timestamps and required `sub/org/role/iss/aud/iat/exp` claims. Subject/organisation must be UUIDs; roles are ADMIN/VIEWER. Issuer/audience are identifiers, not OIDC discovery URLs.
+- Issue 15-minute RS256 JWTs. Spring Security restricts the algorithm and validates signature, issuer, audience, timestamps and required `jti/sub/org/role/iss/aud/iat/exp` claims. Token ID, subject and organisation must be UUIDs; roles are ADMIN/VIEWER. Issuer/audience are identifiers, not OIDC discovery URLs.
 - Use the configured 60-second clock-skew tolerance and an injected clock for deterministic tests.
 - Hash passwords with Argon2id through `DelegatingPasswordEncoder` and the Spring Security v5.8 defaults: 16-byte salt, 32-byte hash, parallelism 1, 16384 KiB memory, 2 iterations. Keep the encoding prefix and random salt.
 - Configured PEM keys (`fleet.jwt.private-key-location`/`public-key-location`, loaded from any Spring resource location) take precedence and are never replaced on failure: missing, unreadable, malformed, undersized or mismatched material fails startup under every profile. Ephemeral RSA-2048 generation requires **both** `fleet.jwt.dev-keys-enabled` and an allowed profile (`dev` or `test`) — the flag alone does nothing elsewhere. Generated keys are per application context, so restarts invalidate tokens and instances cannot share them. Demo accounts likewise require **both** the `demo` profile and `fleet.demo.accounts-enabled`; enabling development keys never enables them.
-- Tokens stay in browser memory; no refresh/revocation. Sign-out clears the in-memory token, cancels requests and clears protected caches. It calls no logout API and does not invalidate an issued token before expiry. Registration/reset, SSO, rate limiting and production key rotation are outside this prototype.
+- Tokens stay in browser memory. Each login has a random `jti`, so separate logins receive distinct tokens. Sign-out calls the logout API and immediately clears the local token, requests and protected caches. A network/server failure shows a warning; it never restores the old session or changes a newer login. Reload loses the local token but does not call logout.
+- Logout stores only the verified `jti` in PostgreSQL, never the bearer token. Revocation follows that signed identity, not the token's text encoding. Every authenticated request validates the signature/claims first, then checks that shared store without an acceptance cache. Logout returns 204 only after commit; token reuse (including another logout) returns 401. Other logins remain valid. Requests authenticated before revocation may finish.
+- Revoked IDs remain through token expiry plus the 60-second clock-skew allowance. Successful logout transactions also remove records strictly older than that boundary. Records may linger when no one logs out; no scheduler or new infrastructure is required. Store-read failure denies access with a sanitised 503; revocation-write failure returns a sanitised 500, never a false success. Shared keys and the same database are required across API instances.
+- Refresh tokens, logout-all-sessions, registration/reset, SSO, rate limiting and production key rotation are outside this prototype.
 - VIEWER responses omit raw denied domains and internal domain-bearing strings throughout the serialized body; evidence counts survive. Public finding IDs use HMAC-SHA-256 with a dedicated secret over a canonical purpose/version prefix, organisation and internal identity. Exclude changing evidence/rank. IDs grant no access; stable correlation is accepted.
 
 ### 5.2 Frontend integration
@@ -310,7 +314,7 @@ The reported cold request remains an open performance investigation in the
 |---|---|
 | Normalised parent attribution | Duplicated analytical dimensions can reduce joins but require consistent updates |
 | Generated jOOQ types | Handwritten SQL avoids database-backed code generation but loses its generated schema checks |
-| Short-lived in-memory JWTs | Server sessions support immediate revocation; the prototype has no revocation store |
+| Short-lived in-memory JWTs with PostgreSQL revocation | Opaque server sessions are another option; retaining JWTs means a shared token-ID lookup on every authenticated request, so authentication is no longer stateless |
 | TanStack Query | Manual fetch/state handling avoids a dependency but requires custom caching and cancellation logic |
 
 RS256, Argon2id, the [dataset configuration](#dataset-configuration), Vitest/React Testing Library

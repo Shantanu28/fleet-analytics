@@ -48,6 +48,3 @@ diagnostics may contain restricted data: CI uploads only the safe summary, never
 Use the [README](README.md) for startup and the [execution record](docs/06-plan.md) for verification.
 `make dev` starts the dev profile only; it does not enable demo logins. Follow the documented
 `dev,demo` command for the seeded dashboard. Ordinary startup never seeds or repairs data.
-
-M6 implementation and review fixes are awaiting human review and commit. GitHub CI and a
-post-commit clean clone remain unverified. Do not describe those checks as successful.

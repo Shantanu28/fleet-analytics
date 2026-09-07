@@ -6,6 +6,7 @@ import java.net.URI;
 public final class ProblemTypes {
 
     public static final URI UNAUTHENTICATED = URI.create("urn:fleet:problem:unauthenticated");
+    public static final URI AUTHENTICATION_UNAVAILABLE = URI.create("urn:fleet:problem:authentication-unavailable");
     public static final URI INVALID_CREDENTIALS = URI.create("urn:fleet:problem:invalid-credentials");
     public static final URI FORBIDDEN = URI.create("urn:fleet:problem:forbidden");
     public static final URI INVALID_REQUEST = URI.create("urn:fleet:problem:invalid-request");

@@ -4,7 +4,7 @@ import { useSession } from './auth/session'
 import './login.css'
 
 export function LoginView() {
-  const { signIn } = useSession()
+  const { signIn, signOutNotice } = useSession()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +28,7 @@ export function LoginView() {
       <div className="login__card">
         <h1 className="login__title">Fleet Analytics</h1>
         <p className="login__subtitle">Sign in to view your organisation’s analytics.</p>
+        {signOutNotice && <p role="alert">{signOutNotice}</p>}
 
         <form className="login__form" onSubmit={onSubmit}>
           <div className="login__field">

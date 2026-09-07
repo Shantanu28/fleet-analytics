@@ -1,11 +1,11 @@
 # Prototype schema reference
 
-> Detailed prototype schema design retained from technical spec Appendix A. [Migrations](../../backend/src/main/resources/db/migration/) define implemented DDL: V1–V4 cover identity/context, analytical records and the seed manifest. The tables below explain the implemented model; migrations are the executable source of truth.
+> Detailed prototype schema design retained from technical spec Appendix A. [Migrations](../../backend/src/main/resources/db/migration/) define implemented DDL: V1–V4 cover identity/context, analytical records and the seed manifest; V5 adds token revocation. The tables below explain the implemented model; migrations are the executable source of truth.
 > Implementation choices are in the [technical spec](../04-technical-spec.md); calculations are in the [metrics contract](../01-metrics-contract.md). Production event schemas are [separate](event-schemas.md).
 
 ### A.1 Table classes
 
-Four classes have different identity rules: `organisation` does not reference itself, and metadata tables do not carry upstream-source identity.
+Table classes have different identity rules: `organisation` does not reference itself, and metadata/security tables do not carry upstream-source identity.
 
 | Class | Tables | Primary key | Upstream source identity |
 |---|---|---|---|
@@ -13,6 +13,7 @@ Four classes have different identity rules: `organisation` does not reference it
 | **Tenant-owned domain** | `team`, `repository`, `app_user`, `seat_licence`, `budget`, `task`, `run`, `pull_request`, `usage_record`, `denial_event` | `id UUID` | yes: `source`, `source_entity_id`, `source_version`, with `UNIQUE (org_id, source, source_entity_id)` |
 | **Dataset metadata** | `dataset_publication`, `source_day_coverage` | natural keys (below) | no — describes the dataset, not an upstream record |
 | **Seed manifest** | `seed_manifest` | `dataset_id TEXT` | no |
+| **Runtime security** | `revoked_token` | `token_id UUID` | no; not part of the seeded business dataset |
 
 `source` is the **provider label** (`demo-seed` throughout the prototype). It is not the same thing as a **logical source** — `tasks`, `runs`, `pull_requests`, `repositories`, `usage`, `denials`, `budgets`, `seats` — which is what coverage and `missing_data` reason about. Both organisations are installed by the same provider, so the provider label does not distinguish tenants; `org_id` does.
 
@@ -34,6 +35,11 @@ Four classes have different identity rules: `organisation` does not reference it
 | `dataset_publication` | PK `org_id`; `data_available_from`, `data_through` `TIMESTAMPTZ NOT NULL`; `revision TEXT NOT NULL` |
 | `source_day_coverage` | PK `(org_id, logical_source, day)`; `day DATE NOT NULL`, `is_complete BOOLEAN NOT NULL` |
 | `seed_manifest` | PK `dataset_id`; `dataset_version TEXT NOT NULL`, `seed BIGINT NOT NULL`, `expected_counts JSONB NOT NULL`, `business_checksum TEXT NOT NULL`, `installed_at TIMESTAMPTZ NOT NULL` |
+| `revoked_token` | PK `token_id` (the signed `jti`); `retain_until TIMESTAMPTZ NOT NULL`, indexed for expiry cleanup |
+
+Revocation is keyed by the signed ID of the verified bearer, not a caller-supplied tenant or
+user identifier. It stores no raw tokens or business data and has no public lookup endpoint.
+The seed installer neither populates nor checksums it. See [logout behaviour](../04-technical-spec.md#51-authentication-and-redaction).
 
 All timestamps are `TIMESTAMPTZ` in UTC; all money is `BIGINT` USD cents ([Conventions](../01-metrics-contract.md#11-conventions)).
 

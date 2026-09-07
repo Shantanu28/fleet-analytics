@@ -120,7 +120,7 @@ The identity provider establishes identity; the organisation service determines 
 
 Prototype ADMIN and VIEWER accounts share their organisation's dashboard; only ADMIN sees denied-domain detail. Raw domains and internal domain-bearing identifiers must not leak through other fields or links. The technical spec defines keyed pseudonymous finding IDs: stable correlation is accepted, not claimed to be anonymity.
 
-Production requires least-privilege credentials, encrypted transport/storage, secret rotation, storage-level isolation safeguards and revocation-aware caching. The prototype does not demonstrate SSO, registration/reset, refresh/revocation or production hardening. Fleet collects operational metadata, not prompts, model responses or source-code contents.
+Production requires least-privilege credentials, encrypted transport/storage, secret rotation, storage-level isolation safeguards and revocation-aware caching. The prototype implements single-token logout using PostgreSQL; it does not demonstrate SSO, registration/reset, refresh tokens, logout-all-sessions or production hardening. Fleet collects operational metadata, not prompts, model responses or source-code contents.
 
 ## 7. Production task lifecycle and retry ownership
 

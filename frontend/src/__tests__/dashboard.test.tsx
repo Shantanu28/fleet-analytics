@@ -124,10 +124,10 @@ describe('the page shell', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/loading results/i)
   })
 
-  it('preserves the token-revocation limitation notice', async () => {
+  it('explains that sign-out revokes the current token', async () => {
     await renderDashboard()
 
-    expect(screen.getByText(/does not revoke/i)).toBeVisible()
+    expect(screen.getByText(/revokes its token on the server/i)).toBeVisible()
   })
 })
 

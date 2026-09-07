@@ -89,6 +89,7 @@ const MESSAGE_BY_PROBLEM_TYPE = new Map<string, string>([
   ['urn:fleet:problem:invalid-credentials', 'Invalid username or password.'],
   ['urn:fleet:problem:invalid-request', 'Please check the details you entered and try again.'],
   ['urn:fleet:problem:unauthenticated', 'Your session has ended. Please sign in again.'],
+  ['urn:fleet:problem:authentication-unavailable', 'Authentication is temporarily unavailable. Please try again.'],
   ['urn:fleet:problem:forbidden', 'You do not have access to this.'],
   // Each selection failure gets its own sentence: telling someone their range is reversed is
   // actionable, where "invalid input" leaves them guessing which control was wrong.
@@ -214,6 +215,17 @@ export async function login(
 
 export async function fetchContext(token: string, signal?: AbortSignal): Promise<ContextResponse> {
   return authenticatedGet('/api/v1/analytics/context', token, isContextResponse, signal)
+}
+
+/** A 401 also confirms this bearer is unusable (already revoked or expired). */
+export async function logout(token: string): Promise<void> {
+  const response = await fetch('/api/v1/auth/logout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (response.status === 204 || response.status === 401) return
+  throw await toApiError(response)
 }
 
 /**

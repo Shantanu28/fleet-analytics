@@ -300,8 +300,7 @@ function AuthenticatedDashboard({ session }: { readonly session: Session }) {
       <footer className="page-footer">
         <p>
           Every figure on this page comes from synthetic demo data. Signing out clears this browser
-          session, but <strong>does not revoke</strong> the issued token — it stays valid until it
-          expires.
+          session and revokes its token on the server. Other signed-in sessions are unaffected.
         </p>
       </footer>
     </div>

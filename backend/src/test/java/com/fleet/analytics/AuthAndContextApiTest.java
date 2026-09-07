@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import com.fleet.analytics.security.PasswordEncoderFactory;
 import com.fleet.analytics.support.Fixtures;
 import com.fleet.analytics.support.IntegrationTestBase;
+import com.fleet.analytics.support.OpenApiContract;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -85,6 +86,109 @@ class AuthAndContextApiTest extends IntegrationTestBase {
     }
 
     private record LoginBody(String username, String password) {}
+
+    @Test
+    void logoutRevokesOnlyThePresentedTokenAndFreshLoginStillWorks() throws Exception {
+        String first = token("acme.admin", "secret-a");
+        String second = token("acme.admin", "secret-a");
+        String otherTenant = token("beacon.viewer", "secret-b");
+        assertThat(contextStatus(first)).isEqualTo(200);
+
+        var logoutResult = mvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + first)).andReturn();
+        OpenApiContract.assertValid(logoutResult);
+        var logout = logoutResult.getResponse();
+        assertThat(logout.getStatus()).isEqualTo(204);
+        assertThat(logout.getContentAsString()).isEmpty();
+        assertThat(contextStatus(first)).isEqualTo(401);
+        assertThat(mvc.perform(get("/api/v1/analytics/dashboard")
+                .header("Authorization", "Bearer " + first)).andReturn().getResponse().getStatus())
+                .isEqualTo(401);
+        assertThat(contextStatus(second)).isEqualTo(200);
+        assertThat(contextStatus(otherTenant)).isEqualTo(200);
+        assertThat(contextStatus(token("acme.admin", "secret-a"))).isEqualTo(200);
+        // Repeating logout cannot restore access; a revoked bearer is already unauthenticated.
+        assertThat(mvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + first)).andReturn().getResponse().getStatus())
+                .isEqualTo(401);
+    }
+
+    @Test
+    void alternateSignatureEncodingsCannotBypassLogout() throws Exception {
+        String bearer = token("acme.admin", "secret-a");
+        String padded = bearer + "=";
+        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        int last = alphabet.indexOf(bearer.charAt(bearer.length() - 1));
+        // RSA-2048's last base64url character has unused bits; changing one preserves signature bytes.
+        String alternate = bearer.substring(0, bearer.length() - 1) + alphabet.charAt(last + 1);
+        assertThat(contextStatus(padded)).isEqualTo(200);
+        assertThat(contextStatus(alternate)).isEqualTo(200);
+        assertThat(mvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + bearer)).andReturn().getResponse().getStatus())
+                .isEqualTo(204);
+        assertThat(new int[] {contextStatus(padded), contextStatus(alternate)})
+                .containsExactly(401, 401);
+    }
+
+    @Test
+    void logoutRequiresAValidBearerAndCannotRevokeAnArbitraryToken() throws Exception {
+        String valid = token("acme.admin", "secret-a");
+        assertThat(mvc.perform(post("/api/v1/auth/logout")).andReturn().getResponse().getStatus())
+                .isEqualTo(401);
+        var response = mvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer malformed-token")).andReturn().getResponse();
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentType()).contains("application/problem+json");
+        assertThat(response.getContentAsString()).doesNotContain("malformed-token", "Exception");
+        assertThat(contextStatus(valid)).isEqualTo(200);
+    }
+
+    private int contextStatus(String bearer) throws Exception {
+        return mvc.perform(get("/api/v1/analytics/context")
+                .header("Authorization", "Bearer " + bearer)).andReturn().getResponse().getStatus();
+    }
+
+    @Test
+    void unavailableRevocationStoreFailsClosedWithASanitisedServiceError() throws Exception {
+        String valid = token("acme.admin", "secret-a");
+        // Only the disposable Testcontainers database is affected; restore it even on assertion failure.
+        try (Connection c = connection(); var statement = c.createStatement()) {
+            statement.execute("alter table revoked_token rename to revoked_token_unavailable_test");
+            try {
+                var result = mvc.perform(get("/api/v1/analytics/context")
+                        .header("Authorization", "Bearer " + valid)).andReturn();
+                assertThat(result.getResponse().getStatus()).isEqualTo(503);
+                assertThat(result.getResponse().getContentAsString())
+                        .contains("urn:fleet:problem:authentication-unavailable")
+                        .doesNotContain("revoked_token", "Exception", "Acme", valid);
+                OpenApiContract.assertResponseValid(result);
+            } finally {
+                statement.execute("alter table revoked_token_unavailable_test rename to revoked_token");
+            }
+        }
+        assertThat(contextStatus(valid)).isEqualTo(200);
+    }
+
+    @Test
+    void failedRevocationWriteNeverReportsSuccessfulLogout() throws Exception {
+        String valid = token("acme.admin", "secret-a");
+        // Allow reads but reject new writes, only in the disposable test database.
+        try (Connection c = connection(); var statement = c.createStatement()) {
+            statement.execute("alter table revoked_token add constraint reject_logout_test check (false) not valid");
+            try {
+                var result = mvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + valid)).andReturn();
+                assertThat(result.getResponse().getStatus()).isEqualTo(500);
+                assertThat(result.getResponse().getContentAsString())
+                        .contains("urn:fleet:problem:internal-error")
+                        .doesNotContain("revoked_token", "reject_logout_test", "Exception", valid);
+                OpenApiContract.assertValid(result);
+            } finally {
+                statement.execute("alter table revoked_token drop constraint reject_logout_test");
+            }
+        }
+        assertThat(contextStatus(valid)).isEqualTo(200);
+    }
 
     @Test
     void loginReturnsTheIdentityTheClientNeedsToScopeItsCaches() throws Exception {

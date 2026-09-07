@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
-/** Issues RS256 tokens carrying sub, org, role, iss, aud, iat and exp. */
+/** Issues RS256 tokens with a unique jti so concurrent logins remain independently revocable. */
 public final class JwtIssuer {
 
     private final RsaKeyProvider keys;
@@ -27,6 +27,7 @@ public final class JwtIssuer {
     public String issue(UUID userId, UUID organisationId, String role) {
         Instant now = clock.instant();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .jwtID(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .issuer(properties.issuer())
                 .audience(properties.audience())
