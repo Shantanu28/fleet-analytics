@@ -52,8 +52,28 @@ test('the filter controls are reached by keyboard in order, each with its visibl
   page,
   scopes,
 }) => {
-  await openDashboard(page, NORTHSTAR_ADMIN)
   const controls = filterControls(page)
+
+  // The headline and context requests are independent. Exercise the ordering that exposed the
+  // CI race: cards can be visible while the date presets still await their reporting cutoff.
+  let releaseContext!: () => void
+  const contextGate = new Promise<void>((resolve) => { releaseContext = resolve })
+  await page.route('**/api/v1/analytics/context', async (route) => {
+    const response = await route.fetch()
+    await contextGate
+    await route.fulfill({ response })
+  })
+  try {
+    await openDashboard(page, NORTHSTAR_ADMIN)
+    await expect(controls.preset(30)).toBeDisabled()
+  } finally {
+    releaseContext()
+  }
+
+  // Wait for the controls we actually test, not just the independently loaded KPI section.
+  for (const days of [7, 30, 90]) await expect(controls.preset(days)).toBeEnabled()
+  await expect(controls.from).toHaveValue(scopes.defaultFrom)
+  await expect(controls.to).toHaveValue(scopes.defaultTo)
 
   // Signing out comes first: it is the first focusable control on the page, and it must be
   // reachable without waiting on any request having succeeded.
