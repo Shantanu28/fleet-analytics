@@ -142,7 +142,7 @@
             <database>
               <name>org.jooq.meta.postgres.PostgresDatabase</name>
               <inputSchema>public</inputSchema>
-              <includes>organisation|team|repository|app_user|seat_licence|dataset_publication|source_day_coverage|budget|task|run|pull_request|usage_record|denial_event</includes>
+              <includes>organisation|team|repository|app_user|seat_licence|dataset_publication|source_day_coverage|budget|task|run|pull_request|usage_record|denial_event|seed_manifest</includes>
               <excludes>flyway_schema_history</excludes>
             </database>
             <target>

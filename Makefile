@@ -31,13 +31,15 @@ setup: db-wait
 	./mvnw -pl backend generate-sources
 	cd frontend && npm ci
 
-## seed: M4. Not implemented yet.
+## seed: explicit M4 installer. Require an intentional target; migrate it separately first.
+## The seed launcher imports only datasource configuration and needs no JWT/HMAC secrets.
 seed:
-	@echo "seed: not implemented until M4" >&2; exit 1
+	@test -n "$${DB_URL:-}" || { echo "seed: set DB_URL to the intended isolated database" >&2; exit 1; }
+	./mvnw -pl backend -Ddb.url="$$DB_URL" -Ddb.user="$${DB_USER:-fleet}" -Ddb.password="$${DB_PASSWORD:-fleet}" spring-boot:run -Dspring-boot.run.main-class=com.fleet.analytics.seed.SeedApplication -Dspring-boot.run.profiles=seed
 
 ## dev: run the backend (dev profile, generated keys) and the Vite dev server together.
 ## Seeds nothing, changes no migrations and deletes nothing: run `make setup` first, and
-## `make seed` once M4 exists. Ctrl-C stops both; either one exiting stops the other and
+## `make seed` before using demo accounts. Ctrl-C stops both; either one exiting stops the other and
 ## fails the target. The launcher signals only the process groups it started itself — never
 ## group 0, and never a process matched by name or by the port it holds.
 dev:

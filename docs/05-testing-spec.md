@@ -1,7 +1,7 @@
 # 05 — Testing strategy
 
 > This document defines test layers and release checks, not a catalogue of individual cases. Expected calculations belong to the [metrics contract](01-metrics-contract.md); acceptance criteria belong to [requirements](02-requirements.md); tooling and implementation belong to the [technical spec](04-technical-spec.md).
-> Foundation, authentication/context API and React session tests exist. Metric, dashboard and browser coverage remains planned. Consult executable suites and test reports for current counts and results; no tests were rerun for this documentation edit.
+> Foundation, authentication, metric/dashboard API, seed safety/integration and React session tests exist. Browser coverage remains planned. Consult executable suites and test reports for current counts and results; no tests were rerun for this documentation edit.
 
 ## 1. Approach
 
@@ -74,7 +74,7 @@ Measure query/API performance on the seeded dataset and record the environment a
 |---|---|
 | `make setup` | Starts PostgreSQL, applies migrations, generates jOOQ types and installs frontend dependencies |
 | `make test` | Runs Maven verification and installed frontend tests, type-checking and production build |
-| `make seed` | Currently an unimplemented placeholder; intended to install demo data |
+| `make seed` | Explicit M4 installer; requires `DB_URL`, validates/no-ops or refuses existing data |
 | `make e2e` | Currently an unimplemented placeholder; intended to run browser journeys |
 
 **Planned CI:** build/static checks, backend unit/integration/API and OpenAPI checks, frontend unit/component tests, then browser journeys once implemented. Checks must propagate failures; optional future lint/coverage tooling is not claimed to exist.

@@ -2,7 +2,7 @@
 
 Organization-level analytics dashboard for **Fleet**, an imaginary platform where engineers delegate coding tasks to agents that run in isolated cloud sandboxes and open pull requests. A take-home assignment for a developer-tools company, built spec-first with an AI-first workflow.
 
-> **Status: M1 (foundation) and M2 (authentication and tenancy) implemented.** Username/password login issues short-lived RS256 JWTs, and a tenant-scoped context endpoint serves the organisation name, role, teams, repositories, licensed seats and coverage. A minimal React UI signs in, shows the organisation and signs out. **69 backend and 28 frontend tests pass.** There is **no analytics dashboard, metrics API or demo dataset yet**; M3–M6 are planned. Research, the metrics contract and the requirements are landed; the architecture, technical, testing and plan documents are drafts under review.
+> **Status: M1–M4 backend implemented.** Authentication, tenant-scoped context and dashboard APIs, metrics/findings, and the safe two-organisation demo installer are available. M4's seeded dashboard integration is verified against M3. The React UI currently supports sign-in and organisation context; dashboard rendering and browser journeys remain M5–M6. Verification evidence is recorded in [the execution plan](docs/06-plan.md).
 
 ## What this is
 
@@ -39,7 +39,7 @@ Then implementation: one milestone per pull request, tests first.
 
 ## Run it
 
-**M1/M2 quickstart.** This verifies the foundation and the sign-in slice — it does not start a dashboard, because there isn't one yet.
+**Backend quickstart.** This verifies the backend and current sign-in UI. Dashboard rendering remains M5.
 
 Requires **Java 25**, **Node 22.12+ (or 24+, or 26+)** — the component-test tooling no longer supports Node 20 — and a running Docker-compatible runtime (Docker Desktop, Colima, or similar) with Compose.
 
@@ -56,7 +56,10 @@ make dev
 
 Ctrl-C stops both. It seeds nothing, changes no migrations and deletes no data — run `make setup` first.
 
-The API will not start without JWT signing keys. Either configure a real PEM key pair:
+The API requires JWT signing keys and a separate persistent finding-ID secret. Set
+`FLEET_FINDINGS_ID_SECRET` to Base64-encoded key material containing at least 32 bytes; generate
+it once (for example with `openssl rand -base64 32`) and retain it outside the repository across
+restarts. There is no automatic fallback. For JWT signing, either configure a PEM key pair:
 
 ```bash
 FLEET_JWT_PRIVATE_KEY=file:/path/to/private.pem FLEET_JWT_PUBLIC_KEY=file:/path/to/public.pem ./mvnw -pl backend spring-boot:run
@@ -72,7 +75,59 @@ The flag on its own, under any other profile, does nothing: startup fails rather
 
 `make setup` is safe to repeat: it re-validates the migration rather than reapplying it, and never drops data.
 
-What passing means: the schema, code generation, build pipeline, login, token validation, tenant scoping and the context endpoint all work. It does **not** mean the dashboard works — the analytics API, metrics, demo dataset and dashboard arrive in later milestones. Demo account credentials will be published here once the seeded demo dataset exists.
+The checks cover the backend schema, authentication, analytics API, metric calculations and seeded integration. They do not establish browser behavior for the frontend dashboard, which remains M5–M6. M4 seeding is described below.
+
+## Synthetic demo data (M4)
+
+The explicit seed command installs both organisations in one transaction. It returns `INSTALLED`
+on an empty database or `UNCHANGED` for matching, validated data. It refuses unmanaged or damaged
+data without changing it. It never migrates, resets or repairs a database. Ordinary startup does not seed.
+
+**Use a separate database when another checkout is active.** The existing Compose file uses port
+5432 and a shared project/volume identity. For a new isolated review database:
+
+```bash
+docker run --detach --name fleet-demo-review \
+  -e POSTGRES_DB=fleet_demo -e POSTGRES_USER=fleet -e POSTGRES_PASSWORD=fleet \
+  -p 127.0.0.1::5432 postgres:18.6-alpine
+docker exec fleet-demo-review pg_isready -U fleet -d fleet_demo  # wait for ready
+export DB_URL="jdbc:postgresql://$(docker port fleet-demo-review 5432)/fleet_demo"
+./mvnw -pl backend -Ddb.url="$DB_URL" flyway:migrate generate-sources
+make seed
+```
+
+The container name must be unused; do not substitute another checkout's container. `make seed`
+requires `DB_URL`; `DB_USER`/`DB_PASSWORD` default to the synthetic local `fleet` credentials.
+The separate seed launcher imports only datasource configuration, so it needs no JWT/HMAC secrets.
+To run tests against this build database, use `MAVEN_ARGS="-Ddb.url=$DB_URL" make test`.
+Testcontainers still creates independent test databases.
+
+| Organisation | ADMIN username / password | VIEWER username / password |
+|---|---|---|
+| Northstar Engineering (A) | `admin` / `123456` | `viewer` / `demo-viewer-a` |
+| Harbor Labs (B) | `admin123` / `1234567` | `viewer123` / `demo-viewer-b` |
+
+These public credentials access synthetic data only. Each tenant has two published logins drawn
+from its engineers. Other engineers have undisclosed random passwords and VIEWER roles; all seeded
+users retain `is_demo_account=true`. Login still requires both the `demo` profile and
+`FLEET_DEMO_ACCOUNTS=true`, plus the normal JWT and finding-ID configuration above. For local API development:
+
+```bash
+FLEET_DEMO_ACCOUNTS=true ./mvnw -pl backend -Ddb.url="$DB_URL" spring-boot:run \
+  -Dspring-boot.run.main-class=com.fleet.analytics.FleetAnalyticsApplication \
+  -Dspring-boot.run.profiles=dev,demo
+```
+
+Dataset `fleet-demo`, version `1`, seed `20260907`: **2026-03-05 through 2026-08-31 inclusive**
+(`dataThrough=2026-09-01T00:00:00Z`). A has 56 engineers/seats, 7 teams, 14 repositories and
+20,000 tasks; B has 10 engineers/seats, 2 teams, 20 repositories and 2,000 tasks. Each task has
+one run. Both tenants publish all eight logical sources for every day, including the empty March 5.
+Configuration and scenario evidence are recorded in [technical spec §6](docs/04-technical-spec.md#6-demo-data).
+
+The investigation starts at **2026-08-02–2026-08-31, Payments, no repository filter**. M4 verifies
+qualifying populations and budget arithmetic directly in PostgreSQL. Authenticated endpoint tests
+also verify finding ranking, link patches and their destination responses, latest presets,
+tenant isolation and ADMIN/VIEWER redaction. Browser navigation and rendering remain M5–M6.
 
 ## Architecture
 

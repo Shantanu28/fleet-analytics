@@ -1,6 +1,6 @@
 # 04 — Technical specification
 
-> Prototype implementation guide. Foundation, authentication/context API and React session code exist; metric/dashboard and seeding work remains planned. This documentation edit did not rerun builds or tests.
+> Prototype implementation guide. Foundation, authentication/context API and React session code exist; the M3 dashboard API and M4 seeding are implemented. Frontend dashboard rendering remains separate work. This documentation edit did not rerun builds or tests.
 > The [metrics contract](01-metrics-contract.md) owns calculations, [requirements](02-requirements.md) own behaviour, [architecture](03-architecture.md) owns production design, and the [testing strategy](05-testing-spec.md) owns verification. This document records implementation choices, not every test or development update.
 
 ## 1. Implementation and stack
@@ -67,17 +67,17 @@ Use exact integer/decimal arithmetic and round only for display. PostgreSQL `sum
 
 ## 5. API contract
 
-The [OpenAPI document](../contracts/openapi.yaml) currently defines login and context. Extend it before implementing the planned dashboard endpoint; do not treat the summary below as an already implemented contract.
+The [OpenAPI document](../contracts/openapi.yaml) defines the implemented login, context and dashboard endpoints.
 
 | Endpoint | Purpose / status |
 |---|---|
 | `POST /api/v1/auth/login` | Credentials → access token and identity; implemented |
 | `GET /api/v1/analytics/context` | Organisation, filters, coverage, seats and role; implemented |
-| `GET /api/v1/analytics/dashboard` | All dashboard sections for one selection; planned |
+| `GET /api/v1/analytics/dashboard` | All dashboard sections for one selection; implemented in M3 |
 
 Dashboard parameters: `from`, `to` (inclusive UTC dates), `teamId`, `repositoryId`, and `grouping` (teams/repositories). Default: last 30 complete days. Any custom range inside publication coverage is valid; 90 days is not a maximum.
 
-The planned response carries publication coverage/revision, per-source completeness for the windows actually used, resolved filters and all sections. Metric values include value/comparison states and explanatory reasons; findings include evaluation limits. The frontend must not infer missing states from a nullable number.
+The response carries publication coverage/revision, per-source completeness for the windows actually used, resolved filters and all sections. Metric values include value/comparison states and explanatory reasons; findings include evaluation limits. The frontend must not infer missing states from a nullable number.
 
 Publication interval comes from `dataset_publication`, not event min/max. `source_day_coverage` determines completeness independently for current, baseline, budget and funnel-observation windows. Missing data affects dependents only; baseline gaps suppress comparisons rather than current values. Details: [A.5](reference/prototype-schema.md#a5-coverage-and-revision).
 
@@ -133,13 +133,51 @@ Take a transaction-scoped advisory lock before inspecting state. One transaction
 
 Derive stable IDs from dataset/seed, organisation, entity type and source ID. Include relationships in deterministic checksumming; exclude password hashes/salts, install timestamps and publication rows. Each organisation's publication revision copies the resulting checksum. Never make password hashing deterministic. Publish synthetic demo credentials only when seeding exists.
 
+### M4 generator configuration and verification
+
+Implemented dataset `fleet-demo`, version `1`, seed `20260907`, with
+`dataAvailableFrom=2026-03-05T00:00:00Z` and exclusive `dataThrough=2026-09-01T00:00:00Z`.
+August has 31 complete budget days. These fixed synthetic values are generator choices under §6.
+
+- A: 20,000 tasks/runs/usage records, 12,370 PRs, 430 denial events, 7 budget rows.
+  B: 2,000 tasks/runs/usage records, 600 PRs, 98 denial events, 3 budget rows.
+  Each has 1,440 complete source-day rows and one publication; remaining counts match the table above.
+- August budgets: A organisation 2,000,000 cents; Payments 140,000; other configured A teams
+  300,000 each; Labs intentionally unconfigured. B organisation 500,000; both teams 300,000 each.
+  Payments MTD/forecast is 173,224 cents, a 23.7314…% overrun (`HIGH`). All other configured
+  scopes are below budget. No floating-point accumulation is used.
+- Investigation starting filters: inclusive **2026-08-02–2026-08-31**, team **Payments**, no
+  repository restriction. `repo-api`: **96/240 failed** versus **23/224** in the preceding 28 days,
+  a **29.7321… percentage-point rise**. Both samples qualify. The HIGH Payments budget must rank
+  above this MEDIUM failure finding. `SeedDashboardApiTest` verifies this ordering through the M3 endpoint.
+- Latest presets and their comparison/failure windows are covered. A failure finding is required
+  at the stated starting filters, not under every preset. Historical custom comparisons can lack baselines.
+- Payments + `repo-retired` is empty. Labs + `repo-experimental` has six failed tasks (low sample,
+  zero completion); `repo-retired` has 40 closed-unmerged PRs and positive spend (zero merge rate).
+  The dataset also contains cross-period merges, non-code spend/denials, historical team attribution,
+  and repeated denials qualifying by distinct tasks and owners. March 5 is complete and known-empty.
+- Exactly two published logins per tenant are drawn from the engineer population. As clarified
+  during M4, other engineers have VIEWER roles and undisclosed random passwords. Every seeded user
+  retains the existing demo-account safeguard. Public credentials and safe commands are in README.
+
+M4 is integrated with M3 commit `8c229ef`. Eight seed-owned API cases exercise the real authenticated
+filter chain, OpenAPI validation, latest presets against each tenant's ledger, finding link patches
+and destination responses, empty/sparse/zero-outcome states, missing historical baselines, tenant
+isolation and VIEWER redaction with unchanged counts. Browser history and rendering remain M5–M6.
+The seed launcher still requires no JWT/HMAC material; the web API retains M3's mandatory persistent
+`FLEET_FINDINGS_ID_SECRET` configuration.
+
+Installer checks actual per-tenant counts and canonical business rows, then publication and password
+validity. It excludes random hashes/salts, installation timestamps and publication rows from the
+checksum; source-day coverage is included. Each publication copies the checksum. There is no repair path.
+
 ## 7. Local development
 
 | Command | Current behaviour |
 |---|---|
 | `make setup` | PostgreSQL readiness → Flyway migration → jOOQ generation → npm dependencies |
 | `make test` | Maven verification, frontend tests, type-check and production build |
-| `make seed` | Placeholder for §6 installer |
+| `make seed` | Explicit §6 installer; requires an intentional `DB_URL` |
 | `make dev` | Placeholder for coordinated backend/frontend startup |
 | `make e2e` | Placeholder for browser journeys |
 

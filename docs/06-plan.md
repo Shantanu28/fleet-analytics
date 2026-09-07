@@ -1,7 +1,7 @@
 # 06 — Execution plan
 
 > **Status: DRAFT, awaiting review.** An execution guide, not a specification. Scope is `00-research.md` §7 · calculations `01` · acceptance criteria `02` · boundaries `03` · implementation `04` · tests `05`. Nothing is copied from them here.
-> **M1 and M2 are complete and verified; M3–M6 are planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
+> **M1–M4 backend work is implemented; M5 and M6 remain planned.** For any milestone not yet executed, planned commands are not evidence of passing tests.
 
 ## How to work the plan
 
@@ -17,7 +17,7 @@ TanStack Query is approved. Nothing else below is; none is resolved here.
 |---|---|
 | M2 | JWT signature algorithm (RS256 recommended); password hashing (Argon2id recommended); **coverage metadata tables** (`04` A.5), needed here because the context response carries coverage; component test stack (Vitest + React Testing Library recommended), needed here because M2 creates the first UI |
 | M3 | `cost_cents >= 0` |
-| M4 | demo calendar dates and `dataAvailableFrom`; per-team budget values; denial-event volume; seed-derived namespaced ids; advisory-lock seeding |
+| M4 | Resolved in `04` §6 M4 configuration; reviewed and integrated with M3 |
 | M6 | browser test tool (Playwright recommended); coverage thresholds |
 
 ## Milestones
@@ -47,7 +47,20 @@ TanStack Query is approved. Nothing else below is; none is resolved here.
 **Deliverable.** Deterministic generation of both organisations as configured in `04` §6, and the installer with its four outcomes.
 **Touches.** Backend `seed` package and its tests.
 **Done when.** Two installs produce identical canonical business data; per-tenant counts match the manifest; required scenarios exist, including the failure spike the investigation journey needs; install, no-op and both refusals behave; concurrent invocation does not double-install.
-**Review gate.** Stop, report changes and verification results, and wait for human review. Do not stage or commit.
+**Initial M4 verification.** `MAVEN_ARGS=-Ddb.url=jdbc:postgresql://127.0.0.1:32768/fleet_m4 make test`
+passed in the isolated worktree: 102 backend tests (including 11 M4 tests), 40 frontend tests,
+type-check and production build. M4 PostgreSQL tests cover independent deterministic installs,
+random hashes, no-op row preservation, refusals, publication rollback and overlapping advisory-lock
+waiters. Contract-based SQL verifies populations and scenarios without invoking M3 endpoints.
+**M3 integration.** Eight additional API test cases pass against M3 commit `8c229ef`, using a
+separate seeded Testcontainer and the real authenticated filter chain. They verify latest preset
+coverage and tenant-specific ledger totals, Payments budget/failure ranking, navigation patches and
+destination responses, sparse/empty/zero states, missing baselines, tenant isolation and VIEWER
+redaction. Browser history and frontend rendering remain M5–M6.
+**Combined verification.** `MAVEN_ARGS=-Ddb.url=jdbc:postgresql://127.0.0.1:32768/fleet_m4_final make test`
+passes: 435 backend tests (19 seed safety/integration cases), 40 frontend tests, type-check and
+production build, with no failures or skipped backend tests. No M3 production code was changed.
+**Review gate.** M4 implementation accepted by the user; integration requested after M3 was pushed.
 
 ### M5 — Dashboard
 **Deliverable.** The full P0 page: TanStack Query integration, URL-driven filters, five KPI cards, two trends, the cohort funnel, the comparison table and the findings panel, with every state.
